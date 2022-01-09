@@ -1,0 +1,172 @@
+# This file is part of pyOCCT which provides Python bindings to the OpenCASCADE
+# geometry kernel.
+#
+# Copyright (C) 2016-2018 Laughlin Research, LLC
+# Copyright (C) 2019-2020 Trevor Laughlin and pyOCCT contributors
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2.1 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+cmake_minimum_required(VERSION 3.15...3.20)
+project(pyOCCT VERSION 7.6.0.0 LANGUAGES C CXX)
+
+
+# --------------------------------------------------------------------------- #
+# SETTINGS
+# --------------------------------------------------------------------------- #
+set(pyOCCT_MAJOR_VERSION 7)
+set(pyOCCT_MINOR_VERSION 6)
+set(pyOCCT_PATCH_VERSION 0)
+set(pyOCCT_TWEAK_VERSION 0)
+
+# Set CXX standard
+set(CMAKE_CXX_STANDARD 14 CACHE STRING "C++ version selection")
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Windows
+if(WIN32)
+    add_definitions(-DWNT -DWIN32 -D_WINDOWS -DCSFDB -DHAVE_CONFIG_H)
+    add_definitions("/wd4244 /wd4251 /wd4275 /wd4290 /wd4503 /wd4996 /wd4003")
+endif(WIN32)
+
+# Unix
+if(UNIX)
+    add_definitions(-DHAVE_CONFIG_H -DCSFDB)
+endif(UNIX)
+
+#Apple
+if(APPLE)
+    add_definitions(-stdlib=libc++)
+endif()
+
+
+# --------------------------------------------------------------------------- #
+# PYTHON and PYBIND11
+# --------------------------------------------------------------------------- #
+message(STATUS "Searching for Python and pybind11...")
+find_package(Python COMPONENTS Interpreter Development REQUIRED)
+find_package(pybind11 CONFIG REQUIRED)
+
+
+# --------------------------------------------------------------------------- #
+# TBB (for BVH header)
+# --------------------------------------------------------------------------- #
+# message(STATUS "Searching for TBB...")
+# find_package(TBB REQUIRED)
+
+
+# --------------------------------------------------------------------------- #
+# OpenGL
+# --------------------------------------------------------------------------- #
+message(STATUS "Searching for OpenGL...")
+if(WIN32 OR APPLE)
+    find_package(OpenGL REQUIRED)
+else()
+    find_package(OpenGL REQUIRED GLX EGL)
+endif()
+
+message(STATUS "OpenGL include directory: ${OPENGL_INCLUDE_DIR}")
+message(STATUS "OpenGL libraries: ${OPENGL_LIBRARIES}")
+include_directories(${OPENGL_INCLUDE_DIR})
+
+
+# --------------------------------------------------------------------------- #
+# Freetype
+# --------------------------------------------------------------------------- #
+message(STATUS "Searching for freetype...")
+find_package(Freetype REQUIRED)
+
+
+# --------------------------------------------------------------------------- #
+# GLEW
+# --------------------------------------------------------------------------- #
+message(STATUS "Searching for GLEW...")
+find_package(GLEW REQUIRED)
+
+# --------------------------------------------------------------------------- #
+# X11
+# --------------------------------------------------------------------------- #
+if(NOT WIN32 AND NOT APPLE)
+    find_package(X11 REQUIRED)
+endif()
+
+# --------------------------------------------------------------------------- #
+# OpenCASCADE
+# --------------------------------------------------------------------------- #
+# Must be included before opencascade so the InterfaceGraphic.hxx patch works
+# include_directories(inc)
+if(NOT DEFINED OpenCASCADE_INCLUDE_DIR OR NOT DEFINED OpenCASCADE_LIBRARY_DIR)
+    message(STATUS "Searching for OpenCASCADE...")
+    find_package(OpenCASCADE 7.6.0 REQUIRED)
+endif()
+
+if(NOT EXISTS ${OpenCASCADE_INCLUDE_DIR})
+    message(FATAL_ERROR "Failed to find OpenCASCADE include directory.")
+endif()
+
+if(NOT EXISTS ${OpenCASCADE_LIBRARY_DIR})
+    message(FATAL_ERROR "Failed to find OpenCASCADE library directory.")
+endif()
+
+include_directories(${OpenCASCADE_INCLUDE_DIR})
+link_directories(${OpenCASCADE_LIBRARY_DIR})
+
+
+# ----------------------------------------------------------------------- #
+# VTK
+# ----------------------------------------------------------------------- #
+message(STATUS "Searching for VTK...")
+find_package(VTK REQUIRED CommonCore)
+
+
+# --------------------------------------------------------------------------- #
+# pyOCCT
+# --------------------------------------------------------------------------- #
+include_directories(inc)
+
+set(OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${OUTPUT_PATH}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${OUTPUT_PATH}")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG "${OUTPUT_PATH}")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${OUTPUT_PATH}")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${OUTPUT_PATH}")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${OUTPUT_PATH}")
+
+# Get source files of module
+file(GLOB SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cxx)
+
+# Add pybind11 module
+pybind11_add_module(OCCT ${SRCS})
+target_link_libraries(OCCT PRIVATE ${OpenCASCADE_LIBRARIES}
+                                   ${Python_LIBRARIES}
+                                   ${OPENGL_LIBRARIES})
+target_include_directories(OCCT PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+if(WIN32)
+    target_compile_options(OCCT PRIVATE /bigobj)
+else()
+    set_target_properties(OCCT PROPERTIES
+        COMPILE_FLAGS "-fpermissive -fvisibility=hidden -fvisibility-inlines-hidden -Wno-deprecated-declarations")
+endif()
+
+if(UNIX AND NOT APPLE)
+    target_link_options(OCCT PRIVATE "LINKER:--allow-multiple-definition")
+endif()
+
+if(APPLE)
+    target_link_libraries(OCCT PRIVATE "-undefined dynamic_lookup")
+endif()
+
+install(FILES ${OUTPUT_PATH}/OCCT${PYTHON_MODULE_EXTENSION}
+        DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/bin)

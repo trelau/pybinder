@@ -1,0 +1,442 @@
+# Preamble for every source file
+preamble = """
+/*
+This file is part of pyOCCT which provides Python bindings to the OpenCASCADE
+geometry kernel.
+
+Copyright (C) 2016-2018  Laughlin Research, LLC
+Copyright (C) 2019-2022  Trevor Laughlin and the pyOCCT contributors
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+*/
+"""
+
+[Debug]
+    debug_mode = 'False'
+    header_file = 'debug_includes.h'
+    headers = [
+        'StdObjMgt_Attribute.hxx',
+        'Standard_Transient.hxx'
+    ]
+
+[Parse]
+
+    # Clang arguments for parsing
+    args = [
+        '-x',
+        'c++',
+        '-std=c++14',
+        '-ferror-limit=0',
+        '-fms-compatibility',
+        '-fms-extensions',
+        '-fdelayed-template-parsing'
+    ]
+
+    # Header extensions to collect headers to headers to parse
+    header_extensions = ['.hxx']
+
+    # Name of file to generate the overall include file for parsing
+    header_file = 'all_includes.h'
+
+    # Headers to exclude from parsing
+    excluded_headers = [
+        # Cannot find 'AIS_LocalStatus.hxx' error
+        'AIS_DataMapOfSelStat.hxx',
+        'AIS_DataMapIteratorOfDataMapOfSelStat.hxx',
+        #
+        # Get a redefinition error
+        'ProjLib_HCompProjectedCurve.hxx',
+        'ProjLib_HProjectedCurve.hxx',
+        #
+        # A bunch of stuff we don't care about and adds complexity
+        'AdvApp2Var_Data_f2c.hxx',
+        'OpenGl_GLESExtensions.hxx',
+        'step.tab.hxx'
+        #
+    ]
+
+[Bind]
+
+    # Headers to put in every source file
+    common_headers = ['pyOCCT.hxx']
+
+[Exclude]
+
+    # Classes to skip entirely
+    classes = ['Handle_*']
+
+    # Base classes to skip entirely
+    base_classes = []
+
+    [Exclude.Modules]
+        # Modules to skip entirely per platform
+        any = ['step']
+        win32 = ['Cocoa']
+        linux = []
+        osx = []
+
+[Modules]
+
+    [Modules.AIS]
+        excluded_classes = ['AIS_ManipulatorObjectSequence']
+        excluded_typedefs = [
+            'AIS_AngleDimension',
+            'AIS_Chamf2dDimension',
+            'AIS_Chamf3dDimension',
+            'AIS_Dimension',
+            'AIS_ConcentricRelation',
+            'AIS_DiameterDimension',
+            'AIS_EllipseRadiusDimension',
+            'AIS_EqualDistanceRelation',
+            'AIS_EqualRadiusRelation',
+            'AIS_FixRelation',
+            'AIS_IdenticRelation',
+            'AIS_LengthDimension',
+            'AIS_MaxRadiusDimension',
+            'AIS_MidPointRelation',
+            'AIS_MinRadiusDimension',
+            'AIS_OffsetDimension',
+            'AIS_ParallelRelation',
+            'AIS_PerpendicularRelation',
+            'AIS_RadiusDimension',
+            'AIS_SymmetricRelation',
+            'AIS_TangentRelation'
+        ]
+
+    [Modules.BinLDrivers]
+        extra_headers = [
+            'gp_XY.hxx',
+            'gp_XYZ.hxx'
+        ]
+
+    [Modules.BinMDF]
+        extra_headers = [
+            'gp_XY.hxx',
+            'gp_XYZ.hxx'
+        ]
+
+    [Modules.Blend]
+        extra_headers = ['Adaptor2d_Curve2d.hxx']
+
+    [Modules.BlendFunc]
+        extra_headers = ['Adaptor2d_Curve2d.hxx']
+
+    [Modules.BOPTools]
+        excluded_typedefs = ['BOPTools_Box2dPairSelector']
+
+    [Modules.BRepBuilderAPI]
+        excluded_classes = ['BRepBuilderAPI_BndBoxTreeSelector']
+
+    [Modules.BRepTopAdaptor]
+        extra_headers = ['BRepAdaptor_Curve2d.hxx']
+
+    [Modules.Contap]
+        extra_headers = ['Adaptor2d_Curve2d.hxx']
+
+    [Modules.Graphic3d]
+        extra_headers = ['Standard_Integer.hxx']
+
+    [Modules.HLRAlgo]
+            extra_headers = ['gp_XYZ.hxx']
+
+    [Modules.IntWalk]
+            extra_headers = ['IntSurf_LineOn2S.hxx']
+
+    [Modules.AppCont]
+        excluded_functions = [
+            'IBPMatrix',
+            'IBTMatrix',
+            'InvMMatrix',
+            'MMatrix',
+            'VBernstein'
+        ]
+
+    [Modules.ChFi3d]
+        extra_headers = ['Geom_BSplineCurve.hxx']
+        excluded_functions = [
+            'ChFi3d_AngleEdge',
+            'ChFi3d_ApproxByC2',
+            'ChFi3d_Boite',
+            'ChFi3d_BoundFac',
+            'ChFi3d_BoundSrf',
+            'ChFi3d_BoundSurf',
+            'ChFi3d_BuildPCurve',
+            'ChFi3d_CheckSameParameter',
+            'ChFi3d_ChercheBordsLibres',
+            'ChFi3d_CircularSpine',
+            'ChFi3d_Coefficient',
+            'ChFi3d_ComputeArete',
+            'ChFi3d_ComputeCurves',
+            'ChFi3d_ComputePCurv',
+            'ChFi3d_ComputesIntPC',
+            'ChFi3d_ConvTol2dToTol3d',
+            'ChFi3d_Couture',
+            'ChFi3d_CoutureOnVertex',
+            'ChFi3d_EdgeFromV1',
+            'ChFi3d_EdgeState',
+            'ChFi3d_EnlargeBox',
+            'ChFi3d_EnlargeFace',
+            'ChFi3d_EvalTolReached',
+            'ChFi3d_ExtrSpineCarac',
+            'ChFi3d_FilCurveInDS',
+            'ChFi3d_FilDS',
+            'ChFi3d_FilPointInDS',
+            'ChFi3d_FilVertexInDS',
+            'ChFi3d_InPeriod',
+            'ChFi3d_IndexOfSurfData',
+            'ChFi3d_IndexPointInDS',
+            'ChFi3d_IntCS',
+            'ChFi3d_IntTraces',
+            'ChFi3d_InterPlaneEdge',
+            'ChFi3d_IsInFront',
+            'ChFi3d_IsPseudoSeam',
+            'ChFi3d_IsSmooth',
+            'ChFi3d_KParticular',
+            'ChFi3d_NbNotDegeneratedEdges',
+            'ChFi3d_NumberOfEdges',
+            'ChFi3d_NumberOfSharpEdges',
+            'ChFi3d_Parameters',
+            'ChFi3d_ProjectPCurv',
+            'ChFi3d_ReparamPcurv',
+            'ChFi3d_SameParameter',
+            'ChFi3d_SearchFD',
+            'ChFi3d_SearchPivot',
+            'ChFi3d_SetPointTolerance',
+            'ChFi3d_SolidIndex',
+            'ChFi3d_Spine',
+            'ChFi3d_StripeEdgeInter',
+            'ChFi3d_TrimCurve',
+            'ChFi3d_TrsfTrans',
+            'ChFi3d_cherche_edge',
+            'ChFi3d_cherche_element',
+            'ChFi3d_cherche_face1',
+            'ChFi3d_cherche_vertex',
+            'ChFi3d_conexfaces',
+            'ChFi3d_edge_common_faces',
+            'ChFi3d_evalconti',
+            'ChFi3d_mkbound',
+            'ChFi3d_nbface'
+        ]
+
+    [Modules.ChFiKPart]
+        extra_headers = [
+            'gp_Pln.hxx',
+            'gp_Cylinder.hxx',
+            'gp_Circ.hxx',
+            'ChFiDS_ChamfMode.hxx',
+            'ChFiDS_SurfData.hxx',
+            'TopOpeBRepDS_DataStructure.hxx'
+        ]
+        excluded_functions = [
+            'ChFiKPart_CornerSpine',
+            'ChFiKPart_InPeriod',
+            'ChFiKPart_MakeChAsym',
+            'ChFiKPart_MakeChamfer',
+            'ChFiKPart_MakeFillet',
+            'ChFiKPart_MakeRotule',
+            'ChFiKPart_PCurve',
+            'ChFiKPart_ProjPC',
+            'ChFiKPart_Sphere'
+        ]
+
+    [Modules.Convert]
+        excluded_functions = ['BuildPolynomialCosAndSin']
+
+    [Modules.ExprIntrp]
+        excluded_functions = [
+            'ExprIntrp_GetDegree',
+            'ExprIntrp_GetResult'
+        ]
+
+    [Modules.HLRTopoBRep]
+        extra_headers = ['Adaptor2d_Curve2d.hxx']
+
+    [Modules.IntAna2d]
+        excluded_functions = [
+            'Coord_Ancien_Repere',
+            'Points_Confondus',
+            'Traitement_Points_Confondus'
+        ]
+
+    [Modules.IntCurve]
+        excluded_functions = [
+            'Determine_Transition_LC',
+            'NormalizeOnCircleDomain'
+        ]
+
+    [Modules.IntImpParGen]
+        excluded_functions = [
+            'Determine_Position',
+            'Determine_Transition',
+            'NormalizeOnDomain'
+        ]
+
+    [Modules.math]
+        extra_headers = [
+            'gp_XY.hxx',
+            'gp_XYZ.hxx'
+        ]
+
+    [Modules.Message]
+        excluded_classes = ['Message_LazyProgressScope']
+
+    [Modules.NCollection]
+        extra_headers = [
+            'gp_XY.hxx',
+            'gp_XYZ.hxx'
+        ]
+        excluded_classes = [
+            'NCollection_DataMap<TheKeyType, TheItemType, Hasher>::DataMapNode',
+            'NCollection_DoubleMap<TheKey1Type, TheKey2Type, Hasher1, Hasher2>::DoubleMapNode',
+            'NCollection_Map<TheKeyType, Hasher>::MapNode',
+            'NCollection_Sequence<TheItemType>::Node',
+            'NCollection_Shared<T, typename>',
+            'NCollection_SparseArray<TheItemType>::Iterator',
+            'NCollection_Vector<TheItemType>::Iterator',
+            ]
+        excluded_typedefs = [
+            'NCollection_DelListNode',
+            'Standard_Size'
+            ]
+
+    [Modules.OpenGl]
+        excluded_classes = ['OpenGl_VariableSetterSelector']
+
+    [Modules.OSD]
+        excluded_classes = ['OSD_StreamBuffer']
+        excluded_typedefs = [
+            'OSD_IStreamBuffer',
+            'OSD_OStreamBuffer',
+            'OSD_IOStreamBuffer'
+        ]
+
+    [Modules.RWObj]
+        excluded_classes = ['RWObj_MtlReader']
+
+    [Modules.StdLPersistent]
+        excluded_classes = [
+            'StdLPersistent_HString::Ascii',
+            'StdLPersistent_HString::Extended',
+            'StdLPersistent_Value::TagSource',
+            'StdLPersistent_Value::Reference',
+            'StdLPersistent_Value::Comment',
+            'StdLPersistent_Value::UAttribute',
+            'StdLPersistent_Value::Integer',
+            'StdLPersistent_Value::Name',
+            'StdLPersistent_Value::AsciiString',
+        ]
+
+    [Modules.StdStorage]
+        excluded_classes = [
+            'StdStorage_Bucket',
+            'StdStorage_BucketOfPersistent'
+        ]
+
+    [Modules.STEPConstruct]
+        extra_headers = ['gp_Pnt.hxx']
+
+    [Modules.StepFile]
+        extra_headers = [
+            'StepData_StepModel.hxx',
+            'StepData_Protocol.hxx'
+        ]
+        excluded_functions = ['StepFile_Interrupt']
+        excluded_classes = ['StepFile_ReadData']
+
+    [Modules.Storage]
+        excluded_classes = [
+            'Storage_Bucket',
+            'Storage_BucketOfPersistent'
+        ]
+
+    [Modules.TDF]
+        excluded_classes = ['TDF_LabelNode']
+
+    [Modules.TopOpeBRepDS]
+        excluded_functions = [
+            'FDSSDM_s1s2makesordor',
+            'FUN_scanloi'
+        ]
+
+    [Modules.Poly]
+        excluded_typedefs = [
+            'Poly_BaseIteratorOfCoherentTriangle',
+            'Poly_BaseIteratorOfCoherentNode',
+            'Poly_BaseIteratorOfCoherentLink'
+        ]
+
+    [Modules.MeshVS]
+        excluded_typedefs = ['MeshVS_TwoColors']
+
+    [Modules.PrsMgr]
+        excluded_typedefs = [
+            'Prs3d_Presentation',
+            'PrsMgr_PresentationManager3d'
+        ]
+
+    [Modules.Font]
+        excluded_typedefs = [
+            'FT_Outline',
+            'FT_Vector'
+        ]
+
+    [Modules.GeomLib]
+        excluded_typedefs = ['Adaptor2d_Curve2d']
+
+    [Modules.ShapeAnalysis]
+        excluded_classes = ['ShapeAnalysis_BoxBndTreeSelector']
+
+    [Modules.BRepClass3d]
+        excluded_classes = [
+            'BRepClass3d_BndBoxTreeSelectorPoint',
+            'BRepClass3d_BndBoxTreeSelectorLine'
+        ]
+
+    [Modules.StdObjMgt]
+        excluded_classes = ['StdObjMgt_Attribute<Transient>::Simple<DataType>']
+
+[Classes]
+
+    [Classes.BOPTools_BoxSelector]
+        prefix = [
+#             'std::string base = "_base_BVH_Traverse_" + name;',
+#             'bind_BVH_Traverse<Standard_Real, Dimension, BVH_BoxSet<Standard_Real, Dimension, Standard_Integer>, Standard_Boolean>(mod, base, py::module_local());'
+        ]
+
+    [Classes.BOPTools_BoxSet]
+        prefix = [
+#             'std::string base = "_base_BVH_BoxSet_" + name;',
+#             'bind_BVH_BoxSet<NumType, Dimension, DataType>(mod, base, py::module_local());'
+            ]
+
+    [Classes.BVH_BoxSet]
+        prefix = [
+#             'std::string base = "_base_BVH_PrimitiveSet_" + name;',
+#             'bind_BVH_PrimitiveSet<NumType, Dimension>(mod, base, py::module_local());'
+            ]
+
+    [Classes.BVH_PrimitiveSet]
+        prefix = [
+#             'std::string base = "_base_BVH_Object_" + name;',
+#             'bind_BVH_Object<T, N>(mod, base, py::module_local());',
+#             'base = "_base_BVH_Set_" + name;',
+#             'bind_BVH_Set<T, N>(mod, base, py::module_local());'
+            ]
+
+    [Classes.BVH_Traverse]
+        prefix = [
+#             'std::string base = "_base_BVH_BaseTraverse_" + name;',
+#             'bind_BVH_BaseTraverse<MetricType>(mod, base, py::module_local());'
+        ]
