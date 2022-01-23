@@ -34,7 +34,8 @@ class Configurator(object):
 
         # Exclude
         self.excluded_classes = []
-        self.excluded_bases = []
+        self.excluded_typedefs = []
+        self.excluded_methods = []
         self.excluded_modules = {}
 
         # Module data
@@ -79,7 +80,8 @@ class Configurator(object):
 
         # Exclude
         config.excluded_classes = data['Exclude']['classes']
-        config.excluded_bases = data['Exclude']['base_classes']
+        config.excluded_typedefs = data['Exclude']['typedefs']
+        config.excluded_methods = data['Exclude']['methods']
         config.excluded_modules = data['Exclude']['Modules']
 
         # Module data
@@ -173,6 +175,36 @@ class Configurator(object):
         except KeyError:
             return False
 
+    def is_excluded_method(self, klass, method):
+        """
+
+        :param klass:
+        :param method:
+        :return:
+        """
+        # Global check
+        for pattern in self.excluded_methods:
+            if fnmatch.fnmatch(method, pattern):
+                return True
+
+        # Class check
+        try:
+            return method in self.classes[klass]['excluded_methods']
+        except KeyError:
+            return False
+
+    def is_excluded_constructor(self, klass, ctor):
+        """
+
+        :param str klass:
+        :param str ctor:
+        :return:
+        """
+        try:
+            return ctor in self.classes[klass]['excluded_constructors']
+        except KeyError:
+            return False
+
     def is_excluded_typedef(self, mod, typedef):
         """
 
@@ -181,6 +213,12 @@ class Configurator(object):
 
         :return:
         """
+        # Global check
+        for pattern in self.excluded_typedefs:
+            if fnmatch.fnmatch(typedef, pattern):
+                return True
+
+        # Module check
         try:
             return typedef in self.modules[mod]['excluded_typedefs']
         except KeyError:
@@ -205,15 +243,7 @@ class Configurator(object):
         except KeyError:
             return []
 
-    def is_excluded_base(self, b):
-        """
-
-        :param str b:
-        :return:
-        """
-        return b in self.excluded_bases
-
-    def get_class_prefix(self, klass):
+    def get_class_before(self, klass):
         """
 
         :param str klass:
@@ -222,6 +252,19 @@ class Configurator(object):
         :rtype: list(str)
         """
         try:
-            return self.classes[klass]['prefix']
+            return self.classes[klass]['before']
+        except KeyError:
+            return []
+
+    def get_class_after(self, klass):
+        """
+
+        :param str klass:
+
+        :return:
+        :rtype: list(str)
+        """
+        try:
+            return self.classes[klass]['after']
         except KeyError:
             return []

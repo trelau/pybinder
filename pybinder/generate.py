@@ -14,6 +14,9 @@ __all__ = ['generate_bindings']
 # TODO Multiple inheritance
 # TODO Trampoline classes
 # TODO Error handlers
+# TODO 'StdObjMgt_Attribute<Transient>::Simple<DataType>'
+# TODO operator() and iterator --> __getitem__
+# TODO Bind STL types (std::vector)
 
 
 def generate_bindings(parser, config, path, remove=False):
@@ -87,7 +90,7 @@ def generate_bindings(parser, config, path, remove=False):
 
         # Classes
         elif cursor.is_class_decl or cursor.is_struct_decl:
-            klass = wrap_class_cursor(cursor)
+            klass = wrap_class_cursor(cursor, config)
             klass.module_name = mod
 
             if config.is_excluded_class(mod, klass.register_name):
@@ -136,7 +139,7 @@ def generate_bindings(parser, config, path, remove=False):
 
         # Class templates
         elif cursor.is_class_template_decl:
-            template = wrap_class_template_cursor(cursor)
+            template = wrap_class_template_cursor(cursor, config)
             template.module_name = mod
             registered_templates[template.register_name] = template
             if config.is_excluded_class(mod, template.register_name):
@@ -405,12 +408,11 @@ def generate_module(output_dir, name, enums, functions, types, config):
     cursors = enums + functions + types
     module_includes, fwd_includes = get_includes_for_cursors(cursors)
 
-    # Include only ones that are available
-    module_includes = [h for h in module_includes if config.is_available_header(h)]
-    fwd_includes = [h for h in fwd_includes if config.is_available_header(h)]
+    # TODO Include only ones that are available
+    # module_includes = [h for h in module_includes if config.is_available_header(h)]
+    # fwd_includes = [h for h in fwd_includes if config.is_available_header(h)]
 
-    # TODO Forward declared type includes
-    fwd_includes = []
+    # Forward declared type includes
     if fwd_includes:
         fout.write('// Includes for needed types\n')
         for h in fwd_includes:
@@ -461,7 +463,7 @@ def generate_module(output_dir, name, enums, functions, types, config):
     # Bind types
     for type_ in types:
         if type_.is_class_decl or type_.is_struct_decl:
-            bind_class(type_, fout)
+            bind_class(type_, fout, config)
         elif type_.is_typedef_decl:
             bind_typedef(type_, fout)
 

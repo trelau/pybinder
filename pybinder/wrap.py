@@ -2,7 +2,7 @@ import fnmatch
 import os
 import re
 
-from clang.cindex import AccessSpecifier, CursorKind, Type, Cursor, c_uint
+from clang.cindex import AccessSpecifier, CursorKind, Type, Cursor, c_uint, TypeKind
 from cymbal import clangext
 
 # Patches for libclang
@@ -21,6 +21,10 @@ clangext.monkeypatch_cursor('get_num_overloaded_decl',
 clangext.monkeypatch_cursor('get_overloaded_decl',
                             'clang_getOverloadedDecl',
                             [Cursor, c_uint], Cursor)
+
+clangext.monkeypatch_type('get_arg_type',
+                          'clang_getArgType',
+                          [Type, c_uint], Type)
 
 
 class CursorWrapper(object):
@@ -48,6 +52,9 @@ class CursorWrapper(object):
         self.parent = None
 
         self.extra_includes = []
+
+        self.before = []
+        self.after = []
 
     def __eq__(self, other):
         return self.clang_cursor.hash == other.clang_cursor.hash
@@ -184,6 +191,14 @@ class CursorWrapper(object):
         return self.clang_cursor.kind == CursorKind.TEMPLATE_REF
 
     @property
+    def is_constructor(self):
+        return self.clang_cursor.kind == CursorKind.CONSTRUCTOR
+
+    @property
+    def is_class_method(self):
+        return self.clang_cursor.kind == CursorKind.CXX_METHOD
+
+    @property
     def enum_value(self):
         return self.clang_cursor.enum_value
 
@@ -212,7 +227,7 @@ class CursorWrapper(object):
         for c in self.clang_cursor.walk_preorder():
             yield CursorWrapper(c)
 
-    def get_parameters(self):
+    def get_method_parameters(self):
         params = []
         for p in self.get_children():
             if p.is_param_decl:
@@ -313,12 +328,6 @@ class CursorWrapper(object):
                 params.append(c)
         return params
 
-    def get_default_value(self):
-        txt = ''.join([t.spelling for t in self.clang_cursor.get_tokens()])
-        if '=' in txt:
-            return txt.split('=', 1)[-1]
-        return ''
-
     @property
     def semantic_parent(self):
         return CursorWrapper(self.clang_cursor.semantic_parent)
@@ -332,7 +341,8 @@ class CursorWrapper(object):
         txt = [self.displayname]
         parent = self.semantic_parent
         while not parent.is_null and not parent.is_translation_unit:
-            txt.insert(0, parent.displayname)
+            if parent.displayname:
+                txt.insert(0, parent.displayname)
             parent = parent.semantic_parent
         name = '::'.join(txt)
         return name
@@ -342,7 +352,8 @@ class CursorWrapper(object):
         txt = [self.spelling]
         parent = self.semantic_parent
         while not parent.is_translation_unit:
-            txt.insert(0, parent.spelling)
+            if parent.spelling:
+                txt.insert(0, parent.spelling)
             parent = parent.semantic_parent
         name = '::'.join(txt)
         return name
@@ -378,6 +389,9 @@ class TypeWrapper(object):
 
         self._type = type_
 
+    def __repr__(self):
+        return 'Type: {} ({})'.format(self.spelling, self._type.kind)
+
     @property
     def spelling(self):
         return self._type.spelling
@@ -390,11 +404,102 @@ class TypeWrapper(object):
     def num_template_parameters(self):
         return self._type.get_num_template_arguments()
 
+    @property
+    def is_invalid(self):
+        return self._type.kind == TypeKind.INVALID
+
+    @property
+    def is_bool(self):
+        return self._type.kind == TypeKind.BOOL
+
+    @property
+    def is_char(self):
+        return self._type.kind == TypeKind.CHAR_S
+
+    @property
+    def is_int(self):
+        kind = self._type.kind
+        return kind == TypeKind.INT or kind == TypeKind.UINT
+
+    @property
+    def is_long_long(self):
+        return self._type.kind == TypeKind.LONGLONG
+
+    @property
+    def is_pointer(self):
+        return self._type.kind == TypeKind.POINTER
+
+    @property
+    def is_lvalue(self):
+        return self._type.kind == TypeKind.LVALUEREFERENCE
+
+    @property
+    def is_rvalue(self):
+        return self._type.kind == TypeKind.RVALUEREFERENCE
+
+    @property
+    def is_pointer_like(self):
+        return self.is_pointer or self.is_lvalue or self.is_rvalue
+
+    @property
+    def is_elaborated(self):
+        return self._type.kind == TypeKind.ELABORATED
+
+    @property
+    def is_unexposed(self):
+        return self._type.kind == TypeKind.UNEXPOSED
+
+    @property
+    def is_record(self):
+        return self._type.kind == TypeKind.RECORD
+
+    @property
+    def is_typedef(self):
+        return self._type.kind == TypeKind.TYPEDEF
+
+    @property
+    def is_enum(self):
+        return self._type.kind == TypeKind.ENUM
+
+    @property
+    def is_void(self):
+        return self._type.kind == TypeKind.VOID
+
+    @property
+    def is_constant_array(self):
+        return self._type.kind == TypeKind.CONSTANTARRAY
+
+    @property
+    def is_vector(self):
+        return self._type.kind == TypeKind.VECTOR
+
+    @property
+    def is_incomplete_array(self):
+        return self._type.kind == TypeKind.INCOMPLETEARRAY
+
+    @property
+    def is_variable_array(self):
+        return self._type.kind == TypeKind.VARIABLEARRAY
+
+    @property
+    def is_dependent_sized_array(self):
+        return self._type.kind == TypeKind.DEPENDENTSIZEDARRAY
+
+    @property
+    def is_const_qualified(self):
+        return self._type.is_const_qualified()
+
     def get_declaration(self):
         return CursorWrapper(self._type.get_declaration())
 
     def get_canonical(self):
         return TypeWrapper(self._type.get_canonical())
+
+    def get_pointee(self):
+        return TypeWrapper(self._type.get_pointee())
+
+    def get_named_type(self):
+        return TypeWrapper(self._type.get_named_type())
 
     def get_template_parameter_type(self, indx):
         """
@@ -403,6 +508,21 @@ class TypeWrapper(object):
         :return:
         """
         return TypeWrapper(self._type.get_template_argument_type(indx))
+
+    def get_argument_type(self, indx):
+        """
+
+        :param indx:
+        :return:
+        """
+        return TypeWrapper(self._type.get_arg_type(indx))
+
+    def get_result(self):
+        """
+
+        :return:
+        """
+        return TypeWrapper(self._type.get_result())
 
 
 class ClassWrapper(CursorWrapper):
@@ -426,6 +546,19 @@ class ClassWrapper(CursorWrapper):
         self.nested_classes = []
         self.nested_class_templates = []
         self.parameters = []
+
+        self.nested_enums = []
+
+        self.constructors = []
+        self.methods = []
+        self.fields = []
+
+        self.is_iterator = False
+        self.keep_alive = 'py::keep_alive<0, 1>'
+
+    @property
+    def is_abstract(self):
+        return self.clang_cursor.is_abstract_record()
 
     def is_derived_from(self, name):
         """
@@ -493,6 +626,34 @@ class BaseClassWrapper(CursorWrapper):
         return '{}: {}'.format(type(self).__name__, self.referenced.qualified_displayname)
 
 
+class ConstructorWrapper(CursorWrapper):
+    """
+
+    :param pybinder.wrap.CursorWrapper cursor:
+    """
+
+    def __init__(self, cursor):
+        super(ConstructorWrapper, self).__init__(cursor.clang_cursor)
+
+        self.parameters = []
+
+    @property
+    def is_converting_constructor(self):
+        return self.clang_cursor.is_converting_constructor()
+
+    @property
+    def is_copy_constructor(self):
+        return self.clang_cursor.is_copy_constructor()
+
+    @property
+    def is_default_constructor(self):
+        return self.clang_cursor.is_default_constructor()
+
+    @property
+    def is_move_constructor(self):
+        return self.clang_cursor.is_move_constructor()
+
+
 class EnumWrapper(CursorWrapper):
     """
 
@@ -526,6 +687,34 @@ class FunctionWrapper(CursorWrapper):
         self.parameters = []
 
 
+class MethodWrapper(CursorWrapper):
+    """
+    :param pybinder.wrap.CursorWrapper cursor:
+    """
+
+    def __init__(self, cursor):
+        super(MethodWrapper, self).__init__(cursor.clang_cursor)
+
+        self.result_name = ''
+        self.parameters = []
+
+    @property
+    def is_static(self):
+        return self.clang_cursor.is_static_method()
+
+    @property
+    def is_const(self):
+        return self.clang_cursor.is_const_method()
+
+    @property
+    def is_virtual(self):
+        return self.clang_cursor.is_virtual_method()
+
+    @property
+    def is_pure_virtual(self):
+        return self.clang_cursor.is_pure_virtual_method()
+
+
 class ParameterWrapper(CursorWrapper):
     """
     :param pybinder.wrap.CursorWrapper cursor:
@@ -535,6 +724,12 @@ class ParameterWrapper(CursorWrapper):
         super(ParameterWrapper, self).__init__(cursor.clang_cursor)
 
         self.default_value = ''
+
+    def get_default_value(self):
+        txt = self.token_spelling
+        if '=' in txt:
+            return txt.split('=', 1)[-1].strip()
+        return ''
 
 
 class ClassTemplateWrapper(CursorWrapper):
@@ -611,7 +806,7 @@ def wrap_enum_cursor(cursor):
             continue
 
         ec = EnumConstantWrapper(c)
-        ec.register_name = '{}::{}'.format(enum.spelling, c.spelling)
+        ec.register_name = c.qualified_spelling
         ec.python_name = c.spelling
         enum.constants.append(ec)
 
@@ -644,18 +839,36 @@ def wrap_function_cursor(cursor):
         if not c.is_param_decl:
             continue
 
-        p = ParameterWrapper(c)
-        p.register_name = c.type.spelling
-        p.python_name = c.spelling
+        p = wrap_method_parameter(c)
         func.parameters.append(p)
 
     return func
 
 
-def wrap_class_cursor(cursor, is_class_template=False):
+def wrap_method_parameter(cursor):
     """
 
     :param pybinder.wrap.CursorWrapper cursor:
+    :return:
+    """
+    # Initialize
+    param = ParameterWrapper(cursor)
+
+    # Set names
+    param.register_name = get_type_spelling(cursor.type)
+    param.python_name = cursor.spelling
+
+    # Default value
+    param.default_value = param.get_default_value()
+
+    return param
+
+
+def wrap_class_cursor(cursor, config, is_class_template=False):
+    """
+
+    :param pybinder.wrap.CursorWrapper cursor:
+    :param pybinder.configure.Configurator config:
     :param bool is_class_template:
     :return:
     """
@@ -683,6 +896,12 @@ def wrap_class_cursor(cursor, is_class_template=False):
         if c.is_destructor and not c.is_public:
             klass.has_hidden_destructor = True
 
+        # Methods
+        if c.is_class_method:
+            m = wrap_method_cursor(c, config, is_class_template)
+            m.object_name = klass.object_name
+            klass.methods.append(m)
+
         # Public only beyond this
         if not c.is_public:
             continue
@@ -691,9 +910,26 @@ def wrap_class_cursor(cursor, is_class_template=False):
         if c.is_base_specifier:
             klass.bases.append(wrap_base_cursor(c))
 
+        # Constructors
+        if c.is_constructor:
+            ctor = wrap_constructor(c, config)
+            ctor.object_name = klass.object_name
+            klass.constructors.append(ctor)
+
+        # TODO Fields
+
+        # Nested enums
+        if c.is_enum_decl:
+            enum = wrap_enum_cursor(c)
+            enum.is_nested = True
+            enum.parent = klass
+            enum.container = klass.object_name
+            enum.python_name = c.spelling
+            klass.nested_enums.append(enum)
+
         # Nested classes
-        if c.is_class_decl and c.is_definition:
-            nklass = wrap_class_cursor(c, is_class_template)
+        if (c.is_class_decl or c.is_struct_decl) and c.is_definition:
+            nklass = wrap_class_cursor(c, config, is_class_template)
             nklass.is_nested = True
             nklass.parent = klass
             nklass.container = klass.object_name
@@ -702,7 +938,7 @@ def wrap_class_cursor(cursor, is_class_template=False):
 
         # Nested class templates
         if c.is_class_template_decl and not is_class_template:
-            ntemplate = wrap_class_template_cursor(c)
+            ntemplate = wrap_class_template_cursor(c, config)
             ntemplate.is_nested = True
             ntemplate.parent = klass
             ntemplate.python_name = sanitize_name(ntemplate.qualified_spelling)
@@ -715,6 +951,12 @@ def wrap_class_cursor(cursor, is_class_template=False):
         klass.holder_type = 'shared_ptr_nodelete'
     else:
         klass.holder_type = 'shared_ptr'
+
+    # Check if (likely) an iterator
+    method_names = {m.spelling for m in klass.methods}
+    iterator_names = {'begin', 'end', 'cbegin', 'cend'}
+    if iterator_names.issubset(method_names):
+        klass.is_iterator = True
 
     return klass
 
@@ -778,10 +1020,11 @@ def wrap_base_cursor(cursor):
     return base
 
 
-def wrap_class_template_cursor(cursor):
+def wrap_class_template_cursor(cursor, config):
     """
 
     :param pybinder.wrap.CursorWrapper cursor:
+    :param pybinder.configure.Configurator config:
     :return:
     """
     # Initialize
@@ -801,7 +1044,7 @@ def wrap_class_template_cursor(cursor):
     template.source_name = template.function_name + '.hxx'
 
     # Wrap the class
-    template.klass = wrap_class_cursor(cursor, True)
+    template.klass = wrap_class_cursor(cursor, config, True)
 
     # Wrap nested class templates
     for c in template.get_children():
@@ -809,7 +1052,7 @@ def wrap_class_template_cursor(cursor):
             continue
 
         if (c.is_class_template_decl or c.is_class_decl or c.is_struct_decl) and c.is_definition:
-            ntemplate = wrap_class_template_cursor(c)
+            ntemplate = wrap_class_template_cursor(c, config)
             ntemplate.is_nested = True
             ntemplate.parent = template
             ntemplate.register_name = ntemplate.klass.register_name
@@ -873,3 +1116,180 @@ def sanitize_name(name):
     name = name.replace('>', '_')
     name = name.strip('_')
     return name
+
+
+def wrap_constructor(cursor, config):
+    """
+
+    :param pybinder.wrap.CursorWrapper cursor:
+    :param pybinder.configure.Configurator config:
+    :return:
+    """
+    # Initialize
+    ctor = ConstructorWrapper(cursor)
+
+    # Exclude move and converting constructors
+    if ctor.is_move_constructor or ctor.is_converting_constructor:
+        ctor.is_excluded = True
+
+    # Set names
+    ctor.register_name = cursor.qualified_displayname
+
+    # Check if excluded
+    if config.is_excluded_constructor(ctor.semantic_parent.qualified_displayname,
+                                      ctor.register_name):
+        ctor.is_excluded = True
+
+    # Process parameters
+    for c in cursor.get_children():
+        if not c.is_param_decl:
+            continue
+
+        p = wrap_method_parameter(c)
+        ctor.parameters.append(p)
+
+    return ctor
+
+
+def wrap_method_cursor(cursor, config, is_class_template_method=False):
+    """
+
+    :param pybinder.wrap.CursorWrapper cursor:
+    :param pybinder.configure.Configurator config:
+    :param bool is_class_template_method:
+    :return:
+    """
+    # Initialize
+    method = MethodWrapper(cursor)
+
+    # Exclude if not public (but we might need for trampoline class)
+    if not method.is_public:
+        method.is_excluded = True
+
+    # Need some hacks since clang doesn't seem to be picking up template parameters in method and
+    # type names
+    template_name = ''
+    template_spelling = ''
+    template_check = ''
+    if is_class_template_method:
+        template_name = cursor.semantic_parent.qualified_displayname
+        template_spelling = cursor.semantic_parent.qualified_spelling
+        if cursor.semantic_parent.is_nested_template:
+            template_check = template_spelling
+        else:
+            template_check = template_spelling + '::'
+
+    # Set names
+    method.register_name = '{}::{}'.format(cursor.semantic_parent.qualified_displayname,
+                                           cursor.spelling)
+    # if is_class_template_method:
+    #     method.register_name = '{}::{}'.format(template_name, cursor.spelling)
+    # else:
+    #     method.register_name = cursor.qualified_spelling
+
+    if method.is_static:
+        method.python_name = cursor.spelling + '_s'
+    else:
+        method.python_name = cursor.spelling
+
+    # Result name
+    method.result_name = get_type_spelling(cursor.result_type)
+
+    # TODO Check result name for template parameters (for the hack above)
+    # if is_class_template_method and template_check in method.result_name:
+    #     method.result_name = sanitize_template_parameter(template_name, template_spelling,
+    #                                                      method.result_name)
+
+    # Process parameters
+    for c in cursor.get_children():
+        if not c.is_param_decl:
+            continue
+
+        p = wrap_method_parameter(c)
+        method.parameters.append(p)
+
+        # TODO Check type name and update with template parameters (for the hack above)
+        # if is_class_template_method and template_check in p.register_name:
+        #     p.register_name = sanitize_template_parameter(template_name, template_spelling,
+        #                                                   p.register_name)
+    # Check excluded
+    if config.is_excluded_method(method.semantic_parent.qualified_displayname,
+                                 method.python_name):
+        method.is_excluded = True
+
+    return method
+
+
+def sanitize_template_parameter(qname, spelling, txt):
+    """
+
+    :param str qname:
+    :param str spelling:
+    :param str txt:
+    :return:
+    """
+    return txt.replace(spelling, qname)
+
+
+def get_type_spelling(ptype):
+    """
+
+    :param pybinder.wrap.TypeWrapper ptype:
+    :return:
+    """
+    # Get the pointer text
+    if ptype.is_lvalue:
+        ptr = ' &'
+    elif ptype.is_rvalue:
+        ptr = ' &&'
+    elif ptype.is_pointer:
+        ptr = ' *'
+    else:
+        ptr = ''
+
+    # Get the pointee
+    if ptype.is_pointer_like:
+        pointee = ptype.get_pointee()
+    elif ptype.is_elaborated:
+        pointee = ptype.get_named_type()
+    else:
+        pointee = ptype
+
+    # Check for const qualified
+    if pointee.is_const_qualified:
+        const = 'const '
+    else:
+        const = ''
+
+    # Get the definition of the type (and return type spelling if not)
+    decl = pointee.get_declaration()
+    if not decl.is_definition:
+        if decl.is_class_decl or decl.is_struct_decl or decl.is_enum_decl or decl.is_typedef_decl:
+            return const + decl.qualified_displayname + ptr
+        else:
+            return ptype.spelling
+
+    # Return the type name if it's a definition and a simple type
+    if pointee.is_record or pointee.is_typedef or pointee.is_enum:
+        return const + decl.qualified_displayname + ptr
+
+    # Deal with template definitions in a special way to better handle edge cases
+    # for template parameters.
+    template = decl.get_specialization()
+    if template.is_null:
+        return const + decl.type.spelling + ptr
+    elif template.is_class_template_decl:
+        params = []
+        for i in range(pointee.num_template_parameters):
+            p = pointee.get_template_parameter_type(i)
+            if p.is_record or p.is_enum or p.is_typedef:
+                params.append(p.get_declaration().qualified_displayname)
+            elif p.is_invalid:
+                return pointee.spelling + ptr
+            else:
+                params.append(p.spelling)
+        t = template.qualified_spelling + '<' + ', '.join(params) + '>'
+        return const + t + ptr
+    else:
+        msg = 'Unhandled type spelling: {}'.format(ptype)
+        raise RuntimeError(msg)

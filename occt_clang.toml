@@ -24,11 +24,18 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 """
 
 [Debug]
-    debug_mode = 'False'
+    debug_mode = 'True'
     header_file = 'debug_includes.h'
     headers = [
-        'StdObjMgt_Attribute.hxx',
-        'Standard_Transient.hxx'
+        'ShapePersistent_TopoDS.hxx',
+        'ShapePersistent_Geom2d_Curve.hxx',
+        'NCollection_List.hxx',
+        'TopoDS_ListOfShape.hxx',
+        'IVtkTools_ShapeObject.hxx',
+        'XSControl_Reader.hxx',
+        'StepSelect_WorkLibrary.hxx',
+        'OSD_OpenFile.hxx',
+        'LDOMParser.hxx'
     ]
 
 [Parse]
@@ -77,8 +84,14 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
     # Classes to skip entirely
     classes = ['Handle_*']
 
-    # Base classes to skip entirely
-    base_classes = []
+    # Typedefs to skip entirely
+    typedefs = ['Handle_*']
+
+    # Methods to skip entirely
+    methods = [
+        'begin', 'end', 'cbegin', 'cend',
+        'operator*'
+        ]
 
     [Exclude.Modules]
         # Modules to skip entirely per platform
@@ -370,6 +383,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
             'FUN_scanloi'
         ]
 
+    [Modules.Plugin]
+        excluded_typedefs = ['Plugin_MapOfFunctions']
+
     [Modules.Poly]
         excluded_typedefs = [
             'Poly_BaseIteratorOfCoherentTriangle',
@@ -409,34 +425,128 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 [Classes]
 
-    [Classes.BOPTools_BoxSelector]
-        prefix = [
-#             'std::string base = "_base_BVH_Traverse_" + name;',
-#             'bind_BVH_Traverse<Standard_Real, Dimension, BVH_BoxSet<Standard_Real, Dimension, Standard_Integer>, Standard_Boolean>(mod, base, py::module_local());'
+    [Classes.AIS_Manipulator]
+        before = [
+            'auto OptionsForAttach = []() {return AIS_Manipulator::OptionsForAttach(); };'
         ]
 
-    [Classes.BOPTools_BoxSet]
-        prefix = [
-#             'std::string base = "_base_BVH_BoxSet_" + name;',
-#             'bind_BVH_BoxSet<NumType, Dimension, DataType>(mod, base, py::module_local());'
-            ]
-
-    [Classes.BVH_BoxSet]
-        prefix = [
-#             'std::string base = "_base_BVH_PrimitiveSet_" + name;',
-#             'bind_BVH_PrimitiveSet<NumType, Dimension>(mod, base, py::module_local());'
-            ]
-
-    [Classes.BVH_PrimitiveSet]
-        prefix = [
-#             'std::string base = "_base_BVH_Object_" + name;',
-#             'bind_BVH_Object<T, N>(mod, base, py::module_local());',
-#             'base = "_base_BVH_Set_" + name;',
-#             'bind_BVH_Set<T, N>(mod, base, py::module_local());'
-            ]
-
-    [Classes.BVH_Traverse]
-        prefix = [
-#             'std::string base = "_base_BVH_BaseTraverse_" + name;',
-#             'bind_BVH_BaseTraverse<MetricType>(mod, base, py::module_local());'
+    [Classes.NCollection_AccAllocator]
+        before = [
+            'auto DefaultBlockSize = []() {return NCollection_AccAllocator::DefaultBlockSize; };'
         ]
+
+    [Classes.NCollection_IncAllocator]
+        before = [
+            'auto DefaultBlockSize = []() {return NCollection_IncAllocator::DefaultBlockSize; };'
+        ]
+
+    [Classes.NCollection_SeqNode]
+        excluded_constructors = ['NCollection_SeqNode::NCollection_SeqNode()']
+
+    [Classes."NCollection_DataMap<TheKeyType, TheItemType, Hasher>"]
+        excluded_methods = [
+            'Bound',
+            'Seek',
+            'ChangeSeek'
+        ]
+
+    [Classes."NCollection_IndexedDataMap<TheKeyType, TheItemType, Hasher>"]
+        excluded_methods = [
+            'Seek',
+            'ChangeSeek'
+        ]
+
+    [Classes.AdvApp2Var_MathBase]
+        excluded_methods = ['mmgaus1_']
+
+    [Classes.ApproxInt_KnotTools]
+        excluded_methods = ['BuildKnots_s']
+
+    [Classes.Aspect_DisplayConnection]
+        excluded_methods = ['GetDefaultVisualInfo']
+
+    [Classes.AIS_MediaPlayer]
+        excluded_methods = ['SetCallback']
+
+    [Classes.BRepAlgoAPI_BuilderAlgo]
+        excluded_methods = ['Builder']
+
+    [Classes."NCollection_DoubleMap<TheKey1Type, TheKey2Type, Hasher1, Hasher2>"]
+        excluded_methods = ['Seek2']
+
+    [Classes.HLRAlgo_PolyInternalData]
+        excluded_methods = ['AddNode', 'UpdateLinks', 'IncTData', 'IncPISeg', 'IncPINod']
+
+    [Classes.HLRBRep_CLProps]
+        excluded_methods = ['SetCurve']
+
+    [Classes.IFSelect_Act]
+        excluded_methods = ['AddFunc']
+
+    [Classes.IGESData_IGESReaderData]
+        excluded_methods = ['DirValues']
+
+    [Classes.IMeshTools_MeshAlgo]
+        excluded_methods = ['Perform']
+
+    [Classes.IVtkTools_ShapeObject]
+        excluded_methods = ['GetOccShape_s']
+
+    [Classes.IVtk_IShapePickerAlgo]
+        excluded_methods = ['Pick']
+
+    [Classes.IVtkOCC_ViewerSelector]
+        excluded_methods = ['Pick']
+
+    [Classes.IVtkOCC_ShapePickerAlgo]
+        excluded_methods = ['Pick']
+
+    [Classes.Media_CodecContext]
+        excluded_methods = ['Init']
+
+    [Classes.Media_FormatContext]
+        excluded_methods = ['UnitsToSeconds_s']
+
+    [Classes.Interface_STAT]
+        excluded_methods = ['Phase']
+
+    [Classes.MoniTool_TypedValue]
+        excluded_methods = ['Internals']
+
+    [Classes.MoniTool_AttrList]
+        excluded_methods = ['GetStringAttribute']
+
+    [Classes.MoniTool_CaseData]
+        excluded_methods = ['Text']
+
+    [Classes.OSD_Thread]
+        excluded_methods = ['SetFunction']
+
+    [Classes.OSD_SharedLibrary]
+        excluded_methods = ['DlSymb']
+
+    [Classes.OSD]
+        excluded_methods = ['RealToCString_s']
+
+    [Classes.Resource_Unicode]
+        excluded_methods = ['ConvertUnicodeToSJIS_s', 'ConvertUnicodeToFormat_s']
+
+    [Classes.ShapePersistent_Geom]
+        excluded_methods = ['Translate_s']
+
+    [Classes.ShapePersistent_Geom2d]
+        excluded_methods = ['Translate_s']
+
+    [Classes.ShapePersistent_Poly]
+        excluded_methods = ['Translate_s']
+
+    [Classes.ShapePersistent_BRep]
+        excluded_methods = ['Translate_s']
+
+    [Classes.Graphic3d_LightSet]
+        before = [
+            'auto IterationFilter_None = []() {return Graphic3d_LightSet::IterationFilter_None; };'
+        ]
+
+    [Classes.BOPAlgo_PaveFiller]
+        excluded_methods = ['Iterator']

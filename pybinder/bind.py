@@ -53,14 +53,17 @@ def bind_enum(enum, fout):
         return
 
     # Write source label
-    line1 = '// ' + 93 * '=' + ' //\n'
-    if enum.is_anonymous:
-        line2 = '// Anonymous Enum\n'
+    if enum.is_nested:
+        label = '// Nested enum: {}\n'.format(enum.register_name)
     else:
-        line2 = '// Enum: {}\n'.format(enum.register_name)
-    line3 = '// Source: {}\n'.format(enum.header_file)
-    line4 = '// ' + 93 * '=' + ' //\n'
-    label = line1 + line2 + line3 + line4
+        line1 = '// ' + 93 * '=' + ' //\n'
+        if enum.is_anonymous:
+            line2 = '// Anonymous Enum\n'
+        else:
+            line2 = '// Enum: {}\n'.format(enum.register_name)
+        line3 = '// Source: {}\n'.format(enum.header_file)
+        line4 = '// ' + 93 * '=' + ' //\n'
+        label = line1 + line2 + line3 + line4
     fout.write(label)
 
     # Bind anonymous enums as integers (special case)
@@ -85,11 +88,12 @@ def bind_enum(enum, fout):
     fout.write('\t.export_values();\n\n')
 
 
-def bind_class(klass, fout):
+def bind_class(klass, fout, config):
     """
 
     :param pybinder.wrap.ClassWrapper klass:
     :param fout:
+    :param pybinder.configure.Configurator config:
 
     :return:
     """
@@ -113,6 +117,15 @@ def bind_class(klass, fout):
     if not klass.is_nested and not klass.is_template and not klass.is_alias:
         txt = 'void bind_{}(py::module &main){{\n\n'.format(klass.python_name)
         fout.write(txt)
+
+    # Before
+    before = config.get_class_before(klass.register_name)
+    if before:
+        fout.write('// Before\n')
+        for line in before:
+            fout.write(line)
+            fout.write('\n')
+        fout.write('\n')
 
     # Get the module
     if not klass.is_nested and not klass.is_template and not klass.is_alias:
@@ -175,11 +188,33 @@ def bind_class(klass, fout):
     fout.write('{}({}, {}, R\"({})\"{});\n'.format(klass.object_name, klass.container,
                                                    python_name, klass.docs, is_local))
 
+    # Constructors
+    # TODO Abstract types
+    if not klass.is_abstract:
+        fout.write('\n// Constructors\n')
+        for ctor in klass.constructors:
+            bind_constructor(ctor, fout)
+
+    # Method
+    fout.write('\n// Methods\n')
+    for method in klass.methods:
+        bind_method(klass, method, fout)
+
+    # Iterator
+    if klass.is_iterator:
+        bind_class_iterator(klass, fout)
+
+    # Nested enums
+    if klass.nested_enums:
+        fout.write('\n')
+    for enum in klass.nested_enums:
+        bind_enum(enum, fout)
+
     # Nested classes
     if klass.nested_classes:
         fout.write('\n')
     for nklass in klass.nested_classes:
-        bind_class(nklass, fout)
+        bind_class(nklass, fout, config)
 
     if not klass.is_nested:
         fout.write('\n')
@@ -263,12 +298,12 @@ def bind_class_template(output_dir, template, config):
             fout.write('#include <{}>\n'.format(h))
         fout.write('\n')
 
-    bind_template(template, fout)
+    bind_template(template, fout, config)
 
     fout.close()
 
 
-def bind_template(template, fout):
+def bind_template(template, fout, config):
     """
 
     :param pybinder.wrap.ClassTemplateWrapper template:
@@ -300,8 +335,87 @@ def bind_template(template, fout):
     fout.write('void {}({}){{\n\n'.format(template.function_name, args))
 
     # Generate the class
-    bind_class(template.klass, fout)
+    bind_class(template.klass, fout, config)
 
     # Nested class templates
     for ntemplate in template.nested_class_templates:
-        bind_template(ntemplate, fout)
+        bind_template(ntemplate, fout, config)
+
+
+def bind_constructor(ctor, fout):
+    """
+
+    :param pybinder.wrap.ConstructorWrapper ctor:
+    :param fout:
+    :return:
+    """
+    if ctor.is_excluded:
+        return
+
+    params = ', '.join([p.register_name for p in ctor.parameters])
+
+    args = ', '
+    for p in ctor.parameters:
+        dval = ''
+        if p.default_value:
+            dval = '={}'.format(p.default_value)
+        args += 'py::arg(\"{}\")'.format(p.spelling) + dval + ', '
+
+    fout.write('{}.def(py::init<{}>(){}R\"({})\");\n'.format(ctor.object_name,
+                                                             params, args, ctor.docs))
+
+
+def bind_method(klass, method, fout):
+    """
+
+    :param pybinder.wrap.ClassWrapper klass:
+    :param pybinder.wrap.MethodWrapper method:
+    :param fout:
+    :return:
+    """
+    if method.is_excluded:
+        return
+
+    static = ''
+    prefix = '{}::*'.format(klass.register_name)
+    if method.is_static:
+        static = '_static'
+        prefix = '*'
+
+    params = ', '.join([p.register_name for p in method.parameters])
+
+    args = ', '
+    for p in method.parameters:
+        dval = ''
+        if p.default_value:
+            dval = '={}'.format(p.default_value)
+        args += 'py::arg(\"{}\")'.format(p.spelling) + dval + ', '
+
+    const = ''
+    if method.is_const:
+        const = ' const'
+
+    fout.write(
+        '{}.def{}(\"{}\", ({} ({})({}){}) &{}{}R\"({})\");\n'.format(method.object_name,
+                                                                     static,
+                                                                     method.python_name,
+                                                                     method.result_name,
+                                                                     prefix,
+                                                                     params,
+                                                                     const,
+                                                                     method.register_name,
+                                                                     args,
+                                                                     method.docs))
+
+
+def bind_class_iterator(klass, fout):
+    """
+
+    :param pybinder.wrap.ClassWrapper klass:
+    :param fout:
+    :return:
+    """
+
+    txt = '{}.def(\"__iter__\", [](const {}& self) {{return py::make_iterator(self.begin(), self.end());}}, {}());\n'.format(
+        klass.object_name, klass.register_name, klass.keep_alive)
+    fout.write(txt)
