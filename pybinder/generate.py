@@ -17,6 +17,7 @@ __all__ = ['generate_bindings']
 # TODO 'StdObjMgt_Attribute<Transient>::Simple<DataType>'
 # TODO operator() and iterator --> __getitem__
 # TODO Bind STL types (std::vector)
+# TODO Qualify "Standard_CString" with "const"?
 
 
 def generate_bindings(parser, config, path, remove=False):
@@ -408,9 +409,9 @@ def generate_module(output_dir, name, enums, functions, types, config):
     cursors = enums + functions + types
     module_includes, fwd_includes = get_includes_for_cursors(cursors)
 
-    # TODO Include only ones that are available
-    # module_includes = [h for h in module_includes if config.is_available_header(h)]
-    # fwd_includes = [h for h in fwd_includes if config.is_available_header(h)]
+    # Include only ones that are available
+    module_includes = [h for h in module_includes if config.is_available_header(h)]
+    fwd_includes = [h for h in fwd_includes if config.is_available_header(h)]
 
     # Forward declared type includes
     if fwd_includes:

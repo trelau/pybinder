@@ -366,7 +366,7 @@ class CursorWrapper(object):
         CursorWrapper(self.clang_cursor.type.get_declaration())
 
     @property
-    def is_nested_template(self):
+    def is_contained_in_class_template(self):
         parent = self.semantic_parent
         while not parent.is_translation_unit:
             if parent.is_class_template_decl:
@@ -898,7 +898,7 @@ def wrap_class_cursor(cursor, config, is_class_template=False):
 
         # Methods
         if c.is_class_method:
-            m = wrap_method_cursor(c, config, is_class_template)
+            m = wrap_method_cursor(c, config)
             m.object_name = klass.object_name
             klass.methods.append(m)
 
@@ -1151,12 +1151,11 @@ def wrap_constructor(cursor, config):
     return ctor
 
 
-def wrap_method_cursor(cursor, config, is_class_template_method=False):
+def wrap_method_cursor(cursor, config):
     """
 
     :param pybinder.wrap.CursorWrapper cursor:
     :param pybinder.configure.Configurator config:
-    :param bool is_class_template_method:
     :return:
     """
     # Initialize
@@ -1166,27 +1165,11 @@ def wrap_method_cursor(cursor, config, is_class_template_method=False):
     if not method.is_public:
         method.is_excluded = True
 
-    # Need some hacks since clang doesn't seem to be picking up template parameters in method and
-    # type names
-    template_name = ''
-    template_spelling = ''
-    template_check = ''
-    if is_class_template_method:
-        template_name = cursor.semantic_parent.qualified_displayname
-        template_spelling = cursor.semantic_parent.qualified_spelling
-        if cursor.semantic_parent.is_nested_template:
-            template_check = template_spelling
-        else:
-            template_check = template_spelling + '::'
-
     # Set names
     method.register_name = '{}::{}'.format(cursor.semantic_parent.qualified_displayname,
                                            cursor.spelling)
-    # if is_class_template_method:
-    #     method.register_name = '{}::{}'.format(template_name, cursor.spelling)
-    # else:
-    #     method.register_name = cursor.qualified_spelling
 
+    # Append "_s" for static methods
     if method.is_static:
         method.python_name = cursor.spelling + '_s'
     else:
@@ -1194,11 +1177,6 @@ def wrap_method_cursor(cursor, config, is_class_template_method=False):
 
     # Result name
     method.result_name = get_type_spelling(cursor.result_type)
-
-    # TODO Check result name for template parameters (for the hack above)
-    # if is_class_template_method and template_check in method.result_name:
-    #     method.result_name = sanitize_template_parameter(template_name, template_spelling,
-    #                                                      method.result_name)
 
     # Process parameters
     for c in cursor.get_children():
@@ -1208,10 +1186,6 @@ def wrap_method_cursor(cursor, config, is_class_template_method=False):
         p = wrap_method_parameter(c)
         method.parameters.append(p)
 
-        # TODO Check type name and update with template parameters (for the hack above)
-        # if is_class_template_method and template_check in p.register_name:
-        #     p.register_name = sanitize_template_parameter(template_name, template_spelling,
-        #                                                   p.register_name)
     # Check excluded
     if config.is_excluded_method(method.semantic_parent.qualified_displayname,
                                  method.python_name):
@@ -1237,6 +1211,8 @@ def get_type_spelling(ptype):
     :param pybinder.wrap.TypeWrapper ptype:
     :return:
     """
+    # TODO Document the challenges here...
+
     # Get the pointer text
     if ptype.is_lvalue:
         ptr = ' &'
@@ -1282,12 +1258,21 @@ def get_type_spelling(ptype):
         params = []
         for i in range(pointee.num_template_parameters):
             p = pointee.get_template_parameter_type(i)
-            if p.is_record or p.is_enum or p.is_typedef:
-                params.append(p.get_declaration().qualified_displayname)
-            elif p.is_invalid:
+
+            if p.is_invalid:
                 return pointee.spelling + ptr
+
+            decl = p.get_declaration()
+            if decl.is_class_template_decl:
+                name = p.spelling
+            elif decl.is_definition:
+                name = decl.qualified_displayname
             else:
-                params.append(p.spelling)
+                name = p.spelling
+
+            assert name
+
+            params.append(name)
         t = template.qualified_spelling + '<' + ', '.join(params) + '>'
         return const + t + ptr
     else:

@@ -24,7 +24,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 """
 
 [Debug]
-    debug_mode = 'True'
+    debug_mode = 'False'
     header_file = 'debug_includes.h'
     headers = [
         'ShapePersistent_TopoDS.hxx',
@@ -35,7 +35,13 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
         'XSControl_Reader.hxx',
         'StepSelect_WorkLibrary.hxx',
         'OSD_OpenFile.hxx',
-        'LDOMParser.hxx'
+        'LDOMParser.hxx',
+        'BOPAlgo_Tools.hxx',
+        'BOPTools_BoxSelector.hxx',
+        'BVH_Box.hxx',
+        'BVH_Builder.hxx',
+        'BVH_Traverse.hxx',
+        'BRepExtrema_OverlapTool.hxx'
     ]
 
 [Parse]
@@ -550,3 +556,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
     [Classes.BOPAlgo_PaveFiller]
         excluded_methods = ['Iterator']
+
+    [Classes.BOPAlgo_Tools]
+        excluded_methods = ['PerformCommonBlocks_s']
