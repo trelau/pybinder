@@ -31,6 +31,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
         'ShapePersistent_Geom2d_Curve.hxx',
         'NCollection_List.hxx',
         'TopoDS_ListOfShape.hxx',
+        'TopoDS_Shape.hxx',
         'IVtkTools_ShapeObject.hxx',
         'XSControl_Reader.hxx',
         'StepSelect_WorkLibrary.hxx',
@@ -41,7 +42,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
         'BVH_Box.hxx',
         'BVH_Builder.hxx',
         'BVH_Traverse.hxx',
-        'BRepExtrema_OverlapTool.hxx'
+        'BRepExtrema_OverlapTool.hxx',
+        'VrmlData_MapOfNode.hxx',
+        'NCollection_Map.hxx',
+        'VrmlData_Scene.hxx'
     ]
 
 [Parse]

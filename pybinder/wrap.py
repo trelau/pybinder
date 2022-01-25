@@ -1211,23 +1211,34 @@ def get_type_spelling(ptype):
     :param pybinder.wrap.TypeWrapper ptype:
     :return:
     """
-    # TODO Document the challenges here...
+    # The logic below is one of the less robust parts of the entire process. It was mostly derived
+    # by trial and error on edge cases rather than knowing exactly what the right thing to do is.
+    # The easiest (and preferred) way to do it would simply be "return ptype.spelling" but that
+    # seems to sometimes miss pieces of the type definition. This seems to mostly be a problem
+    # with things defined in a class (e.g., nested class) where the class itself doesn't need a
+    # fully qualified definition but the bindings do. A simple example is in a class template where
+    # the source code may be "Template::Foo" which is fine for the template itself, but clang picks
+    # up that and "ptype.spelling" returns "Template::Foo" rather than "Template<T>::Foo" which
+    # is what the binding source needs. In this example the fully qualified displayname picks up the
+    # the template parameters (as used below).
 
-    # Get the pointer text
+    # In summary, the approach below in its current form is mostly just hoping that it works and is
+    # likely not suitable as a "catch all" process. Note that a type "record" in this case seems to
+    # represent a class/struct in clang.
+
+    # Get the pointer qualifier
     if ptype.is_lvalue:
-        ptr = ' &'
+        ptr = '&'
     elif ptype.is_rvalue:
-        ptr = ' &&'
+        ptr = '&&'
     elif ptype.is_pointer:
-        ptr = ' *'
+        ptr = '*'
     else:
         ptr = ''
 
     # Get the pointee
     if ptype.is_pointer_like:
         pointee = ptype.get_pointee()
-    elif ptype.is_elaborated:
-        pointee = ptype.get_named_type()
     else:
         pointee = ptype
 
@@ -1237,44 +1248,89 @@ def get_type_spelling(ptype):
     else:
         const = ''
 
-    # Get the definition of the type (and return type spelling if not)
+    # To start, keep iterating and retrieving the elaborated type until it is not longer elaborated.
+    # If it's a record, typedef, or enum return the type spelling.
+    while pointee.is_elaborated:
+        pointee = pointee.get_named_type()
+        if pointee.is_record or pointee.is_typedef or pointee.is_enum:
+            return ptype.spelling
+
+    # Get the definition of the type
     decl = pointee.get_declaration()
     if not decl.is_definition:
+        # It can be the case that a declaration is not a definition but a valid class, struct,
+        # typedef, or enum. In this case, use the qualified displayname.
         if decl.is_class_decl or decl.is_struct_decl or decl.is_enum_decl or decl.is_typedef_decl:
             return const + decl.qualified_displayname + ptr
         else:
+            # If it's not a definition and none of the above, it is likely something like a template
+            # parameter. In this case, just return the type spelling and hope for the best.
             return ptype.spelling
 
-    # Return the type name if it's a definition and a simple type
+    # At this point you should have a definition. Now, if the pointee is a record, typedef, or enum
+    # you should be able to use the qualified displayname.
     if pointee.is_record or pointee.is_typedef or pointee.is_enum:
         return const + decl.qualified_displayname + ptr
 
-    # Deal with template definitions in a special way to better handle edge cases
-    # for template parameters.
+    # Deal with template definitions in a special way to better handle edge cases for template
+    # parameters. The challenge here is that in source things may be defined like
+    # "Template<Bar>" when what you really need in the bindings is "Template<Foo::Bar>" or
+    # "Template<Foo<T>::Bar>" in the case of a template. Start by attempting to retrieve the
+    # template specialization and taking our best guess at what to do next...
     template = decl.get_specialization()
     if template.is_null:
+        # This is sometimes encountered in the case of class templates where the return type of
+        # a method might be "Template<T>" as one example. In general it seems the things that fall
+        # here are a definition (since we checked for that above) but not a record, typedef, or
+        # enum. They usually (but not always) are of type kind "unexposed" if that provides any
+        # hints to make this more robust in the future.
         return const + decl.type.spelling + ptr
     elif template.is_class_template_decl:
+        # If the template is in fact a class template, iterate through the template parameters and
+        # try to make a best guess at what the right type spelling should be.
         params = []
         for i in range(pointee.num_template_parameters):
             p = pointee.get_template_parameter_type(i)
 
+            # If the type is invalid just return the pointee retrieved earlier. This seems to happen
+            # most frequently for the second template parameter of a class template for some reason.
+            # That is, if you have "Template<A, B>" clang will return the spelling of the first
+            # parameter as "A" but then the second parameter is (seemingly) always invalid.
+            # Returning the original pointee seems to be a best guess at what to do but if it works
+            # it seems more by accident that anything else...
             if p.is_invalid:
                 return pointee.spelling + ptr
 
+            # Get the definition of the template parameter type
             decl = p.get_declaration()
             if decl.is_class_template_decl:
+                # If the type is a template itself, use the spelling of the template parameter type
+                # rather than the template qualified displayname. Using the qualified displayname of
+                # the template would result in "Template<A, B>" (i.e., the class template itself)
+                # rather than "Template<Foo, Bar>" as defined in the type itself.
                 name = p.spelling
             elif decl.is_definition:
+                # If the declaration is a definition, use the qualified displayname. This helps
+                # catch cases where it's defined as "Template<Bar>" in the source but the bindings
+                # need "Template<Foo::Bar>" to compile.
                 name = decl.qualified_displayname
             else:
+                # If nothing else, just use the parameter type spelling mostly as a fallback.
                 name = p.spelling
 
-            assert name
+            # Make sure some parameter name was determined. If not it will be blank and the bindings
+            # would fail to compile.
+            if not name:
+                msg = 'Unhandled template parameter type spelling: {}'.format(ptype)
+                raise RuntimeError(msg)
 
+            # Add the name to the template parameter list
             params.append(name)
+
+        # Put it all together and return
         t = template.qualified_spelling + '<' + ', '.join(params) + '>'
         return const + t + ptr
     else:
+        # Leave this here in case an edge case is encountered and more work is needed
         msg = 'Unhandled type spelling: {}'.format(ptype)
         raise RuntimeError(msg)
