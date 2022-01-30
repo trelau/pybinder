@@ -27,23 +27,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
     debug_mode = 'False'
     header_file = 'debug_includes.h'
     headers = [
-#         'Standard_Type.hxx',
-#         'Standard_Transient.hxx',
-#         'Geom_Geometry.hxx',
-#         'Geom_Curve.hxx',
-#         'Geom_Line.hxx',
-#         'gp_Lin.hxx',
-#         'NCollection_UBTree.hxx',
-#         'Standard_ErrorHandler.hxx',
-#         'Poly_MakeLoops.hxx',
-        'OSD_MAllocHook.hxx',
-#         'gp_Dir.hxx',
-#         'StdObjMgt_SharedObject.hxx',
-#         'AIS_InteractiveObject.hxx',
-#         'OpenGl_Resource.hxx',
-#         'VrmlData_IndexedFaceSet.hxx',
-#         'Aspect_Window.hxx',
-#         'Aspect_DisplayConnection.hxx'
+        'BRepMesh_GeomTool.hxx'
     ]
 
 [Parse]
@@ -471,7 +455,24 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
         excluded_methods = ['BuildKnots_s']
 
     [Classes.Aspect_DisplayConnection]
-        excluded_methods = ['GetDefaultVisualInfo']
+        excluded_methods = [
+            'GetDefaultFBConfig',
+            'GetDefaultVisualInfo',
+            'GetDisplayAspect',
+            'Init',
+            'SetDefaultVisualInfo'
+        ]
+
+    [Classes.Aspect_NeutralWindow]
+        excluded_methods = [
+            'NativeFBConfig',
+            'SetNativeHandles'
+        ]
+
+    [Classes.Aspect_Window]
+        excluded_methods = [
+            'NativeFBConfig'
+        ]
 
     [Classes.AIS_MediaPlayer]
         excluded_methods = ['SetCallback']
@@ -561,3 +562,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
     [Classes.BOPAlgo_Tools]
         excluded_methods = ['PerformCommonBlocks_s']
+
+    [Classes."BVH_PairTraverse<NumType, Dimension, BVHSetType, MetricType>"]
+        excluded_methods = ['Select']
+
+    [Classes.BRepMesh_Deflection]
+        excluded_methods = ['ComputeDeflection_s']
+
+    [Classes.BRepMesh_GeomTool]
+        excluded_methods = ['CellsCount_s']

@@ -475,6 +475,11 @@ class TypeWrapper(object):
         return self._type.kind == TypeKind.VOID
 
     @property
+    def is_array_like(self):
+        return (self.is_constant_array or self.is_incomplete_array or self.is_variable_array or
+                self.is_dependent_sized_array)
+
+    @property
     def is_constant_array(self):
         return self._type.kind == TypeKind.CONSTANTARRAY
 
@@ -1237,6 +1242,10 @@ def wrap_constructor(cursor, config):
         p = wrap_method_parameter(c)
         ctor.parameters.append(p)
 
+        # Check for unsupported parameter
+        if not is_supported_parameter(p):
+            ctor.is_excluded = True
+
     return ctor
 
 
@@ -1275,9 +1284,8 @@ def wrap_method_cursor(cursor, config):
         p = wrap_method_parameter(c)
         method.parameters.append(p)
 
-        # Check for "pointer to pointer" situation which is not supported
-        if p.type.is_pointer_like and p.type.get_pointee().is_pointer_like:
-            print('Excluding method: {} (pointer to pointer)'.format(method.register_name))
+        # Check for unsupported parameters
+        if not is_supported_parameter(p):
             method.is_excluded = True
 
     # Check excluded
@@ -1463,3 +1471,25 @@ def parse_template_parameters(name):
     :return:
     """
     return '<' + re.search("<(.*)>", name).group(1) + '>'
+
+
+def is_supported_parameter(param):
+    """
+
+    :param pybinder.wrap.ParameterWrapper param:
+    :return:
+    """
+    if param.type.is_pointer_like:
+        pointee = param.type.get_pointee()
+    else:
+        pointee = param.type
+
+    # Pointer to pointer
+    if pointee.is_pointer_like:
+        return False
+
+    # Arrays
+    if pointee.is_array_like:
+        return False
+
+    return True
