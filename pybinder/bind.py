@@ -174,6 +174,10 @@ def bind_class(klass, fout, config):
     if bases:
         bases = ', ' + bases
 
+    # TODO Trampoline base (only if included)
+    # if klass.trampoline and not klass.trampoline.is_excluded:
+    #     bases += ', {}'.format(klass.trampoline.base_name)
+
     # Python name is function input for a class template
     if klass.is_template and not klass.is_nested:
         python_name = 'register_name.c_str()'
@@ -189,9 +193,10 @@ def bind_class(klass, fout, config):
                                                    python_name, klass.docs, is_local))
 
     # Constructors
-    # TODO Abstract types
-    if not klass.is_abstract:
-        fout.write('\n// Constructors\n')
+    fout.write('\n// Constructors\n')
+    if klass.is_abstract:
+        fout.write('// Constructors not yet supported for abstract classes\n')
+    else:
         for ctor in klass.constructors:
             bind_constructor(ctor, fout)
 
@@ -298,6 +303,10 @@ def bind_class_template(output_dir, template, config):
             fout.write('#include <{}>\n'.format(h))
         fout.write('\n')
 
+    # TODO Bind trampoline classes
+    # for tclass in template.get_trampolines():
+    #     bind_trampoline_class(tclass, fout)
+
     bind_template(template, fout, config)
 
     fout.close()
@@ -308,6 +317,7 @@ def bind_template(template, fout, config):
 
     :param pybinder.wrap.ClassTemplateWrapper template:
     :param fout:
+    :param pybinder.configure.Configurator config:
     :return:
     """
     if template.is_excluded:
@@ -419,3 +429,50 @@ def bind_class_iterator(klass, fout):
     txt = '{}.def(\"__iter__\", [](const {}& self) {{return py::make_iterator(self.begin(), self.end());}}, {}());\n'.format(
         klass.object_name, klass.register_name, klass.keep_alive)
     fout.write(txt)
+
+
+def bind_trampoline_class(tclass, fout):
+    """
+
+    :param pybinder.wrap.TrampolineClassWrapper tclass:
+    :param fout:
+    :return:
+    """
+    if tclass.is_excluded:
+        return
+
+    klass = tclass.klass
+
+    # Write source label
+    line1 = '// ' + 93 * '=' + ' //\n'
+    line2 = '// Trampoline: {}\n'.format(tclass.class_name)
+    line3 = '// Class: {}\n'.format(klass.register_name)
+    line4 = '// ' + 93 * '=' + ' //\n'
+    label = line1 + line2 + line3 + line4
+    fout.write(label)
+
+    if klass.is_contained_in_class_template:
+        txt = 'template<' + ', '.join(tclass.parameters) + '>\n'
+        fout.write(txt)
+
+    fout.write('class {} : public {} {{\n'.format(tclass.class_name, klass.register_name))
+    fout.write('public:\n')
+    fout.write('\tusing {}::{};\n\n'.format(klass.displayname, klass.displayname))
+
+    fout.write('\t// Override pure virtual methods\n')
+    for method in tclass.pure_virtual_methods:
+        params = ', '.join([p.register_name + ' ' + p.spelling for p in method.parameters])
+        args = ', '.join([p.spelling for p in method.parameters])
+
+        const = ''
+        if method.is_const:
+            const = ' const'
+
+        fout.write('\t{} {}({}){} '.format(method.result_name, method.spelling, params, const))
+        fout.write('override {{ PYBIND11_OVERLOAD_PURE({}, {}, {}, '.format(method.result_name,
+                                                                            klass.register_name,
+                                                                            method.spelling))
+        fout.write(args)
+        fout.write(') };\n')
+
+    fout.write('\n};\n\n')

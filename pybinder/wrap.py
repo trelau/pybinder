@@ -367,12 +367,21 @@ class CursorWrapper(object):
 
     @property
     def is_contained_in_class_template(self):
+        if self.is_class_template_decl:
+            return True
         parent = self.semantic_parent
         while not parent.is_translation_unit:
             if parent.is_class_template_decl:
                 return True
             parent = parent.semantic_parent
         return False
+
+    def get_trampolines(self):
+        """
+
+        :return:
+        """
+        return []
 
 
 class TypeWrapper(object):
@@ -541,6 +550,7 @@ class ClassWrapper(CursorWrapper):
 
         self.bases = []
         self.extra_bases = []
+        self.trampoline = None
 
         self.is_template = False
         self.nested_classes = []
@@ -591,6 +601,26 @@ class ClassWrapper(CursorWrapper):
 
         visit(self)
         return bases
+
+    def get_trampolines(self):
+        """
+        Get all trampoline classes for this class.
+
+        :return:
+        """
+        tclasses = []
+
+        def get_tclasses(klass):
+            if klass.trampoline:
+                tclasses.append(klass.trampoline)
+            for nklass in klass.nested_classes:
+                get_tclasses(nklass)
+            for ntemplate in klass.nested_class_templates:
+                get_tclasses(ntemplate.klass)
+
+        get_tclasses(self)
+
+        return tclasses
 
 
 class BaseClassWrapper(CursorWrapper):
@@ -748,6 +778,13 @@ class ClassTemplateWrapper(CursorWrapper):
 
         self.nested_class_templates = []
 
+    def get_trampolines(self):
+        """
+
+        :return:
+        """
+        return self.klass.get_trampolines()
+
 
 class TypedefWrapper(CursorWrapper):
     """
@@ -782,6 +819,21 @@ class TypedefWrapper(CursorWrapper):
 
         visit(self)
         return bases
+
+
+class TrampolineClassWrapper(object):
+    """
+    :param pybinder.wrap.ClassWrapper klass:
+    """
+
+    def __init__(self, klass):
+        self.is_excluded = True
+        self.class_name = ''
+        self.base_name = ''
+        self.template_name = ''
+        self.klass = klass
+        self.parameters = []
+        self.pure_virtual_methods = []
 
 
 def wrap_enum_cursor(cursor):
@@ -946,6 +998,10 @@ def wrap_class_cursor(cursor, config, is_class_template=False):
             ntemplate.source_name = ntemplate.function_name + '.hxx'
             klass.nested_class_templates.append(ntemplate)
 
+    # Wrap trampoline class
+    if klass.is_abstract:
+        klass.trampoline = wrap_trampoline_class(klass, is_class_template)
+
     # Set holder type
     if klass.has_hidden_destructor:
         klass.holder_type = 'shared_ptr_nodelete'
@@ -959,6 +1015,42 @@ def wrap_class_cursor(cursor, config, is_class_template=False):
         klass.is_iterator = True
 
     return klass
+
+
+def wrap_trampoline_class(klass, is_class_template=False):
+    """
+
+    :param pybinder.wrap.ClassWrapper klass:
+    :param bool is_class_template:
+    :return:
+    """
+    # Initialize
+    trampoline = TrampolineClassWrapper(klass)
+
+    # Get template parameters
+    if klass.is_contained_in_class_template:
+        trampoline.parameters = get_template_parameters_token_spelling(klass.semantic_parent)
+    else:
+        trampoline.parameters = get_template_parameters_token_spelling(klass)
+
+    # Set names
+    if is_class_template:
+        trampoline.class_name = 'Py' + sanitize_name(klass.qualified_spelling)
+        if klass.is_contained_in_class_template:
+            params = parse_template_parameters(klass.semantic_parent.qualified_displayname)
+        else:
+            params = parse_template_parameters(klass.qualified_displayname)
+        trampoline.base_name = trampoline.class_name + params
+    else:
+        trampoline.class_name = 'Py' + sanitize_name(klass.register_name)
+        trampoline.base_name = trampoline.class_name
+
+    # Get pure virtual methods
+    for method in klass.methods:
+        if method.is_pure_virtual:
+            trampoline.pure_virtual_methods.append(method)
+
+    return trampoline
 
 
 def wrap_base_cursor(cursor):
@@ -1015,7 +1107,7 @@ def wrap_base_cursor(cursor):
 
     # Get parameters
     if '<' in base.base_name:
-        base.parameters = '<' + re.search("<(.*)>", base.base_name).group(1) + '>'
+        base.parameters = parse_template_parameters(base.base_name)
 
     return base
 
@@ -1034,9 +1126,7 @@ def wrap_class_template_cursor(cursor, config):
     template.header_file = os.path.split(template.clang_cursor.location.file.name)[-1]
 
     # Get template parameters
-    for c in template.get_children():
-        if c.is_template_type_param or c.is_template_non_type_param or c.is_template_template_param:
-            template.parameters.append(c.token_spelling)
+    template.parameters = get_template_parameters_token_spelling(cursor)
 
     # Set names
     template.register_name = cursor.qualified_displayname
@@ -1087,8 +1177,7 @@ def wrap_typedef_cursor(cursor):
     if not underlying_template.is_null:
         typedef.is_templated = True
         typedef.underlying_template_name = underlying_template.qualified_displayname
-        parameters = '<' + re.search("<(.*)>", underlying_type.spelling).group(1) + '>'
-        typedef.parameters = parameters
+        typedef.parameters = parse_template_parameters(underlying_type.spelling)
         base_cursor = underlying_template
     elif underlying_cursor.is_class_decl or underlying_cursor.is_struct_decl:
         base_cursor = underlying_cursor
@@ -1185,6 +1274,11 @@ def wrap_method_cursor(cursor, config):
 
         p = wrap_method_parameter(c)
         method.parameters.append(p)
+
+        # Check for "pointer to pointer" situation which is not supported
+        if p.type.is_pointer_like and p.type.get_pointee().is_pointer_like:
+            print('Excluding method: {} (pointer to pointer)'.format(method.register_name))
+            method.is_excluded = True
 
     # Check excluded
     if config.is_excluded_method(method.semantic_parent.qualified_displayname,
@@ -1334,3 +1428,38 @@ def get_type_spelling(ptype):
         # Leave this here in case an edge case is encountered and more work is needed
         msg = 'Unhandled type spelling: {}'.format(ptype)
         raise RuntimeError(msg)
+
+
+def get_template_parameters_token_spelling(cursor):
+    """
+
+    :param cursor:
+    :return:
+    """
+    parameters = []
+    for c in cursor.get_children():
+        if c.is_template_type_param or c.is_template_non_type_param or c.is_template_template_param:
+            parameters.append(c.token_spelling)
+    return parameters
+
+
+def get_template_parameters_spelling(cursor):
+    """
+
+    :param cursor:
+    :return:
+    """
+    parameters = []
+    for c in cursor.get_children():
+        if c.is_template_type_param or c.is_template_non_type_param or c.is_template_template_param:
+            parameters.append(c.spelling)
+    return parameters
+
+
+def parse_template_parameters(name):
+    """
+
+    :param name:
+    :return:
+    """
+    return '<' + re.search("<(.*)>", name).group(1) + '>'

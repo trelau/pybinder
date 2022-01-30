@@ -27,25 +27,23 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
     debug_mode = 'False'
     header_file = 'debug_includes.h'
     headers = [
-        'ShapePersistent_TopoDS.hxx',
-        'ShapePersistent_Geom2d_Curve.hxx',
-        'NCollection_List.hxx',
-        'TopoDS_ListOfShape.hxx',
-        'TopoDS_Shape.hxx',
-        'IVtkTools_ShapeObject.hxx',
-        'XSControl_Reader.hxx',
-        'StepSelect_WorkLibrary.hxx',
-        'OSD_OpenFile.hxx',
-        'LDOMParser.hxx',
-        'BOPAlgo_Tools.hxx',
-        'BOPTools_BoxSelector.hxx',
-        'BVH_Box.hxx',
-        'BVH_Builder.hxx',
-        'BVH_Traverse.hxx',
-        'BRepExtrema_OverlapTool.hxx',
-        'VrmlData_MapOfNode.hxx',
-        'NCollection_Map.hxx',
-        'VrmlData_Scene.hxx'
+#         'Standard_Type.hxx',
+#         'Standard_Transient.hxx',
+#         'Geom_Geometry.hxx',
+#         'Geom_Curve.hxx',
+#         'Geom_Line.hxx',
+#         'gp_Lin.hxx',
+#         'NCollection_UBTree.hxx',
+#         'Standard_ErrorHandler.hxx',
+#         'Poly_MakeLoops.hxx',
+        'OSD_MAllocHook.hxx',
+#         'gp_Dir.hxx',
+#         'StdObjMgt_SharedObject.hxx',
+#         'AIS_InteractiveObject.hxx',
+#         'OpenGl_Resource.hxx',
+#         'VrmlData_IndexedFaceSet.hxx',
+#         'Aspect_Window.hxx',
+#         'Aspect_DisplayConnection.hxx'
     ]
 
 [Parse]

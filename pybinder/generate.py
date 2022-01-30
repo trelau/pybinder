@@ -3,7 +3,7 @@ import os
 import shutil
 from collections import defaultdict
 
-from pybinder.bind import bind_enum, bind_class, bind_class_template, bind_typedef, bind_function
+from pybinder.bind import (bind_enum, bind_class, bind_class_template, bind_typedef, bind_function, bind_trampoline_class)
 from pybinder.utilities import get_includes_for_cursors
 from pybinder.wrap import (wrap_class_cursor, wrap_enum_cursor, wrap_function_cursor,
                            wrap_typedef_cursor, wrap_class_template_cursor)
@@ -12,7 +12,6 @@ __all__ = ['generate_bindings']
 
 
 # TODO Multiple inheritance
-# TODO Trampoline classes
 # TODO Error handlers
 # TODO 'StdObjMgt_Attribute<Transient>::Simple<DataType>'
 # TODO operator() and iterator --> __getitem__
@@ -239,7 +238,8 @@ def generate_bindings(parser, config, path, remove=False):
                 if not superclass.is_excluded:
                     base.is_excluded = False
                     base.superclass = superclass
-            elif (base.is_templated or base.is_template) and base.referenced_template in registered_templates:
+            elif (
+                    base.is_templated or base.is_template) and base.referenced_template in registered_templates:
                 superclass = registered_templates[base.referenced_template]
                 if not superclass.is_excluded:
                     base.is_excluded = False
@@ -460,6 +460,11 @@ def generate_module(output_dir, name, enums, functions, types, config):
     for _, func in functions:
         bind_function(func, fout)
     fout.write('}\n\n')
+
+    # TODO Bind trampoline classes
+    # for type_ in types:
+    #     for tclass in type_.get_trampolines():
+    #         bind_trampoline_class(tclass, fout)
 
     # Bind types
     for type_ in types:
