@@ -422,17 +422,41 @@ class TypeWrapper(object):
         return self._type.kind == TypeKind.BOOL
 
     @property
-    def is_char(self):
-        return self._type.kind == TypeKind.CHAR_S
-
-    @property
-    def is_int(self):
+    def is_char_like(self):
         kind = self._type.kind
-        return kind == TypeKind.INT or kind == TypeKind.UINT
+        return kind in (TypeKind.CHAR_U,
+                        TypeKind.UCHAR,
+                        TypeKind.CHAR16,
+                        TypeKind.CHAR32,
+                        TypeKind.CHAR_S,
+                        TypeKind.SCHAR,
+                        TypeKind.WCHAR)
 
     @property
-    def is_long_long(self):
-        return self._type.kind == TypeKind.LONGLONG
+    def is_int_like(self):
+        kind = self._type.kind
+        return kind in (TypeKind.USHORT,
+                        TypeKind.UINT,
+                        TypeKind.ULONG,
+                        TypeKind.ULONGLONG,
+                        TypeKind.UINT128,
+                        TypeKind.SHORT,
+                        TypeKind.INT,
+                        TypeKind.LONG,
+                        TypeKind.LONGLONG,
+                        TypeKind.INT128)
+
+    @property
+    def is_float_like(self):
+        kind = self._type.kind
+        return kind in (TypeKind.FLOAT,
+                        TypeKind.DOUBLE,
+                        TypeKind.LONGDOUBLE,
+                        TypeKind.FLOAT128)
+
+    @property
+    def is_built_in_like(self):
+        return self.is_bool or self.is_char_like or self.is_int_like or self.is_float_like
 
     @property
     def is_pointer(self):
@@ -1222,8 +1246,8 @@ def wrap_constructor(cursor, config):
     # Initialize
     ctor = ConstructorWrapper(cursor)
 
-    # Exclude move and converting constructors
-    if ctor.is_move_constructor or ctor.is_converting_constructor:
+    # Exclude move constructor
+    if ctor.is_move_constructor:
         ctor.is_excluded = True
 
     # Set names
@@ -1243,8 +1267,9 @@ def wrap_constructor(cursor, config):
         ctor.parameters.append(p)
 
         # Check for unsupported parameter
-        if not is_supported_parameter(p):
+        if not is_supported_parameter_type(p.type):
             ctor.is_excluded = True
+            print('Excluding constructor: {}'.format(ctor))
 
     return ctor
 
@@ -1275,6 +1300,10 @@ def wrap_method_cursor(cursor, config):
 
     # Result name
     method.result_name = get_type_spelling(cursor.result_type)
+    if not is_supported_parameter_type(cursor.result_type):
+        method.is_excluded = True
+        if 'operator' not in method.spelling:
+            print('Excluding method (result type): {}'.format(method))
 
     # Process parameters
     for c in cursor.get_children():
@@ -1285,8 +1314,10 @@ def wrap_method_cursor(cursor, config):
         method.parameters.append(p)
 
         # Check for unsupported parameters
-        if not is_supported_parameter(p):
+        if not is_supported_parameter_type(p.type):
             method.is_excluded = True
+            if 'operator' not in method.spelling:
+                print('Excluding method (unsupported parameter): {}'.format(method))
 
     # Check excluded
     if config.is_excluded_method(method.semantic_parent.qualified_displayname,
@@ -1473,23 +1504,63 @@ def parse_template_parameters(name):
     return '<' + re.search("<(.*)>", name).group(1) + '>'
 
 
-def is_supported_parameter(param):
+def is_supported_parameter_type(ptype):
     """
 
-    :param pybinder.wrap.ParameterWrapper param:
+    :param pybinder.wrap.TypeWrapper ptype:
     :return:
     """
-    if param.type.is_pointer_like:
-        pointee = param.type.get_pointee()
-    else:
-        pointee = param.type
+    # Void
+    if ptype.is_void:
+        return True
 
-    # Pointer to pointer
-    if pointee.is_pointer_like:
+    # Rvalue
+    if ptype.is_rvalue:
+        return False
+
+    # Get the pointee
+    pointee = ptype
+    nptrs = 0
+    while pointee.is_pointer_like:
+        pointee = pointee.get_pointee()
+        nptrs += 1
+
+    # Things like *&, **, and/or **& are not supported
+    if nptrs > 1:
+        return False
+
+    # Void pointer (e.g., void *)
+    if nptrs > 0 and pointee.is_void:
         return False
 
     # Arrays
     if pointee.is_array_like:
         return False
 
-    return True
+    # Pointee is built-in
+    if pointee.is_built_in_like:
+        return True
+
+    # Template parameter
+    if pointee.is_unexposed and 'type-parameter-' in pointee.canonical_spelling:
+        return True
+
+    # Pointee is definition
+    if pointee.get_declaration().is_definition:
+        return True
+
+    # Use canonical type from definition checks
+    ctype = pointee.get_canonical()
+
+    # Canonical type is built-in
+    if ctype.is_built_in_like:
+        return True
+
+    # Canonical type is definition
+    if ctype.get_declaration().is_definition:
+        return True
+
+    if ctype.is_pointer_like:
+        return is_supported_parameter_type(ctype)
+
+    return False

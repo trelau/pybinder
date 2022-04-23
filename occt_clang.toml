@@ -24,10 +24,20 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 """
 
 [Debug]
-    debug_mode = 'False'
+    debug_mode = 'True'
     header_file = 'debug_includes.h'
     headers = [
-        'BRepMesh_GeomTool.hxx'
+#         'OSD_Thread.hxx',
+        'BOPAlgo_Tools.hxx',
+        'BOPDS_CommonBlock.hxx',
+        'BOPDS_PDS.hxx',
+        'BOPDS_DS.hxx',
+        'IntTools_Context.hxx',
+        'TCollection_ExtendedString.hxx',
+        'Standard_Type.hxx',
+        'Standard_TypeDef.hxx',
+        'Standard_ExtString.hxx',
+        'TCollection_AsciiString.hxx'
     ]
 
 [Parse]
@@ -138,11 +148,18 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
     [Modules.BlendFunc]
         extra_headers = ['Adaptor2d_Curve2d.hxx']
 
+    [Modules.BOPAlgo]
+        extra_headers = [
+            'TColStd_MapOfInteger.hxx',
+            'BOPDS_Iterator.hxx'
+        ]
+
     [Modules.BOPTools]
         excluded_typedefs = ['BOPTools_Box2dPairSelector']
 
     [Modules.BRepBuilderAPI]
         excluded_classes = ['BRepBuilderAPI_BndBoxTreeSelector']
+        excluded_typedefs = ['BRepBuilderAPI_CellFilter']
 
     [Modules.BRepTopAdaptor]
         extra_headers = ['BRepAdaptor_Curve2d.hxx']
@@ -167,6 +184,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
             'MMatrix',
             'VBernstein'
         ]
+
+    [Modules.ApproxInt]
+        extra_headers = ['NCollection_Vector.hxx']
 
     [Modules.ChFi3d]
         extra_headers = ['Geom_BSplineCurve.hxx']
@@ -258,6 +278,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
     [Modules.Convert]
         excluded_functions = ['BuildPolynomialCosAndSin']
+
+    [Modules.CPnts]
+        extra_headers = ['Adaptor2d_Curve2d.hxx']
 
     [Modules.ExprIntrp]
         excluded_functions = [
@@ -369,7 +392,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
     [Modules.TDF]
         excluded_classes = ['TDF_LabelNode']
 
+    [Modules.TopOpeBRep]
+        extra_headers = ['TopOpeBRepTool_ShapeClassifier.hxx']
+
     [Modules.TopOpeBRepDS]
+        extra_headers = ['TopOpeBRepTool_ShapeClassifier.hxx']
         excluded_functions = [
             'FDSSDM_s1s2makesordor',
             'FUN_scanloi'
@@ -415,6 +442,18 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
     [Modules.StdObjMgt]
         excluded_classes = ['StdObjMgt_Attribute<Transient>::Simple<DataType>']
 
+    [Modules.BRepAlgoAPI]
+        extra_headers = ['BOPAlgo_Builder.hxx']
+
+    [Modules.IMeshTools]
+        extra_headers = ['IMeshData_Face.hxx']
+
+    [Modules.BRepMesh]
+        extra_headers = ['IMeshData_Wire.hxx']
+
+    [Modules.XmlMXCAFDoc]
+        extra_headers = ['TopTools_LocationSet.hxx']
+
 [Classes]
 
     [Classes.AIS_Manipulator]
@@ -431,36 +470,25 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
         before = [
             'auto DefaultBlockSize = []() {return NCollection_IncAllocator::DefaultBlockSize; };'
         ]
-
-    [Classes.NCollection_SeqNode]
-        excluded_constructors = ['NCollection_SeqNode::NCollection_SeqNode()']
-
+#
+#     [Classes.NCollection_SeqNode]
+#         excluded_constructors = ['NCollection_SeqNode::NCollection_SeqNode()']
+#
     [Classes."NCollection_DataMap<TheKeyType, TheItemType, Hasher>"]
-        excluded_methods = [
-            'Bound',
-            'Seek',
-            'ChangeSeek'
-        ]
+        excluded_methods = ['Bound', 'ChangeSeek', 'Seek']
 
     [Classes."NCollection_IndexedDataMap<TheKeyType, TheItemType, Hasher>"]
-        excluded_methods = [
-            'Seek',
-            'ChangeSeek'
-        ]
+        excluded_methods = ['ChangeSeek', 'Seek']
 
-    [Classes.AdvApp2Var_MathBase]
-        excluded_methods = ['mmgaus1_']
-
-    [Classes.ApproxInt_KnotTools]
-        excluded_methods = ['BuildKnots_s']
-
+#     [Classes.AdvApp2Var_MathBase]
+#         excluded_methods = ['mmgaus1_']
+#
+#     [Classes.ApproxInt_KnotTools]
+#         excluded_methods = ['BuildKnots_s']
+#
     [Classes.Aspect_DisplayConnection]
         excluded_methods = [
-            'GetDefaultFBConfig',
-            'GetDefaultVisualInfo',
-            'GetDisplayAspect',
-            'Init',
-            'SetDefaultVisualInfo'
+            'GetDefaultFBConfig'
         ]
 
     [Classes.Aspect_NeutralWindow]
@@ -473,63 +501,64 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
         excluded_methods = [
             'NativeFBConfig'
         ]
-
-    [Classes.AIS_MediaPlayer]
-        excluded_methods = ['SetCallback']
-
-    [Classes.BRepAlgoAPI_BuilderAlgo]
-        excluded_methods = ['Builder']
-
-    [Classes."NCollection_DoubleMap<TheKey1Type, TheKey2Type, Hasher1, Hasher2>"]
-        excluded_methods = ['Seek2']
-
-    [Classes.HLRAlgo_PolyInternalData]
-        excluded_methods = ['AddNode', 'UpdateLinks', 'IncTData', 'IncPISeg', 'IncPINod']
-
-    [Classes.HLRBRep_CLProps]
-        excluded_methods = ['SetCurve']
-
-    [Classes.IFSelect_Act]
-        excluded_methods = ['AddFunc']
-
-    [Classes.IGESData_IGESReaderData]
-        excluded_methods = ['DirValues']
-
-    [Classes.IMeshTools_MeshAlgo]
-        excluded_methods = ['Perform']
-
+#
+#     [Classes.AIS_MediaPlayer]
+#         excluded_methods = ['SetCallback']
+#
+#     [Classes.BRepAlgoAPI_BuilderAlgo]
+#         excluded_methods = ['Builder']
+#
+#     [Classes."NCollection_DoubleMap<TheKey1Type, TheKey2Type, Hasher1, Hasher2>"]
+#         excluded_methods = ['Seek2']
+#
+#     [Classes.HLRAlgo_PolyInternalData]
+#         excluded_methods = ['AddNode', 'UpdateLinks', 'IncTData', 'IncPISeg', 'IncPINod']
+#
+#     [Classes.HLRBRep_CLProps]
+#         excluded_methods = ['SetCurve']
+#
+#     [Classes.IFSelect_Act]
+#         excluded_methods = ['AddFunc']
+#
+#     [Classes.IGESData_IGESReaderData]
+#         excluded_methods = ['DirValues']
+#
+#     [Classes.IMeshTools_MeshAlgo]
+#         excluded_methods = ['Perform']
+#
     [Classes.IVtkTools_ShapeObject]
-        excluded_methods = ['GetOccShape_s']
-
-    [Classes.IVtk_IShapePickerAlgo]
-        excluded_methods = ['Pick']
-
-    [Classes.IVtkOCC_ViewerSelector]
-        excluded_methods = ['Pick']
-
-    [Classes.IVtkOCC_ShapePickerAlgo]
-        excluded_methods = ['Pick']
-
-    [Classes.Media_CodecContext]
-        excluded_methods = ['Init']
-
-    [Classes.Media_FormatContext]
-        excluded_methods = ['UnitsToSeconds_s']
-
-    [Classes.Interface_STAT]
-        excluded_methods = ['Phase']
-
-    [Classes.MoniTool_TypedValue]
-        excluded_methods = ['Internals']
-
-    [Classes.MoniTool_AttrList]
-        excluded_methods = ['GetStringAttribute']
-
-    [Classes.MoniTool_CaseData]
-        excluded_methods = ['Text']
+        excluded_methods = ['getKey_s']
+#
+#     [Classes.IVtk_IShapePickerAlgo]
+#         excluded_methods = ['Pick']
+#
+#     [Classes.IVtkOCC_ViewerSelector]
+#         excluded_methods = ['Pick']
+#
+#     [Classes.IVtkOCC_ShapePickerAlgo]
+#         excluded_methods = ['Pick']
+#
+#     [Classes.Media_CodecContext]
+#         excluded_methods = ['Init']
+#
+#     [Classes.Media_FormatContext]
+#         excluded_methods = ['UnitsToSeconds_s']
+#
+#     [Classes.Interface_STAT]
+#         excluded_methods = ['Phase']
+#
+#     [Classes.MoniTool_TypedValue]
+#         excluded_methods = ['Internals']
+#
+#     [Classes.MoniTool_AttrList]
+#         excluded_methods = ['GetStringAttribute']
+#
+#     [Classes.MoniTool_CaseData]
+#         excluded_methods = ['Text']
 
     [Classes.OSD_Thread]
         excluded_methods = ['SetFunction']
+        excluded_constructors = ['OSD_Thread::OSD_Thread(const OSD_ThreadFunction&)']
 
     [Classes.OSD_SharedLibrary]
         excluded_methods = ['DlSymb']
@@ -538,7 +567,13 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
         excluded_methods = ['RealToCString_s']
 
     [Classes.Resource_Unicode]
-        excluded_methods = ['ConvertUnicodeToSJIS_s', 'ConvertUnicodeToFormat_s']
+        excluded_methods = [
+            'ConvertUnicodeToSJIS_s',
+            'ConvertUnicodeToEUC_s',
+            'ConvertUnicodeToGB_s',
+            'ConvertUnicodeToANSI_s',
+            'ConvertUnicodeToFormat_s'
+        ]
 
     [Classes.ShapePersistent_Geom]
         excluded_methods = ['Translate_s']
@@ -557,17 +592,59 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
             'auto IterationFilter_None = []() {return Graphic3d_LightSet::IterationFilter_None; };'
         ]
 
-    [Classes.BOPAlgo_PaveFiller]
-        excluded_methods = ['Iterator']
+    [Classes.Font_TextFormatter]
+        before = [
+            'auto IterationFilter_None = []() {return Font_TextFormatter::IterationFilter_None; };'
+        ]
 
-    [Classes.BOPAlgo_Tools]
-        excluded_methods = ['PerformCommonBlocks_s']
+    [Classes.Font_FTFont]
+        excluded_methods = ['renderGlyphOutline']
 
-    [Classes."BVH_PairTraverse<NumType, Dimension, BVHSetType, MetricType>"]
-        excluded_methods = ['Select']
+    [Classes.Font_FTLibrary]
+        excluded_methods = ['Instance']
+#
+#     [Classes.BOPAlgo_PaveFiller]
+#         excluded_methods = ['Iterator']
+#
+#     [Classes.BOPAlgo_Tools]
+#         excluded_methods = ['PerformCommonBlocks_s']
+#
+#     [Classes."BVH_PairTraverse<NumType, Dimension, BVHSetType, MetricType>"]
+#         excluded_methods = ['Select']
+#
+#     [Classes.BRepMesh_Deflection]
+#         excluded_methods = ['ComputeDeflection_s']
+#
+#     [Classes.BRepMesh_GeomTool]
+#         excluded_methods = ['CellsCount_s']
+#
+#     [Classes.CPnts_MyGaussFunction]
+#         excluded_methods = ['Init']
+#
+#     [Classes.CPnts_MyRootFunction]
+#         excluded_methods = ['Init']
 
-    [Classes.BRepMesh_Deflection]
-        excluded_methods = ['ComputeDeflection_s']
 
-    [Classes.BRepMesh_GeomTool]
-        excluded_methods = ['CellsCount_s']
+    [Classes.Xw_Window]
+        excluded_methods = [
+            'NativeFBConfig'
+        ]
+        excluded_constructors = [
+            'Xw_Window::Xw_Window(const opencascade::handle<Aspect_DisplayConnection>&, const Aspect_Drawable, const Aspect_FBConfig)'
+        ]
+
+    [Classes.Wasm_Window]
+        excluded_methods = [
+            'NativeFBConfig'
+        ]
+
+    [Classes.WNT_Window]
+        excluded_methods = [
+            'NativeFBConfig'
+        ]
+
+    [Classes.TNaming]
+        excluded_methods = ['FirstUse']
+
+    [Classes.TCollection_ExtendedString]
+        excluded_methods = ['ToUTF8CString']
